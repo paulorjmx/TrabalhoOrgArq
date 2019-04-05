@@ -4,12 +4,13 @@
 #include <string.h>
 #include <unistd.h>
 
-// typedef struct t_file_header
-// {
-//     int topo_lista;
-//     char desc_campo1[40], desc_campo2[40], desc_campo3[40], desc_campo4[40], desc_campo5[40];
-//     char status, tag_campo1, tag_campo2, tag_campo3, tag_campo4, tag_campo5;
-// } FILE_HEADER;
+typedef struct t_file_header
+{
+    int topo_lista;
+    char desc_campo1[40], desc_campo2[40], desc_campo3[40], desc_campo4[40], desc_campo5[40];
+    char status, tag_campo1, tag_campo2, tag_campo3, tag_campo4, tag_campo5;
+} FILE_HEADER;
+
 #define SIZE_FILE_HEADER 210
 #define CLUSTER_SIZE 32000 // Tamanho do cluster em bytes
 
@@ -32,11 +33,44 @@ void init_file_header(FILE_HEADER *header)
     }
 }
 
-void create_bin_file(const char *filename)
+void create_bin_file(const char *file_name)
 {
-    if()
+    if(access(file_name, F_OK) != 0)
     {
-
+        int i = 0;
+        char bloat = '@';
+        FILE_HEADER fh;
+        FILE *fp = fopen(file_name, "wb");
+        if(fp != NULL)
+        {
+            init_file_header(&fh);
+            fwrite(&fh.status, sizeof(char), 1, fp);
+            fwrite(&fh.topo_lista, sizeof(int), 1, fp);
+            fwrite(&fh.tag_campo1, sizeof(char), 1, fp);
+            fwrite(&fh.desc_campo1, sizeof(fh.desc_campo1), 1, fp);
+            fwrite(&fh.tag_campo2, sizeof(char), 1, fp);
+            fwrite(&fh.desc_campo2, sizeof(fh.desc_campo2), 1, fp);
+            fwrite(&fh.tag_campo3, sizeof(char), 1, fp);
+            fwrite(&fh.desc_campo3, sizeof(fh.desc_campo3), 1, fp);
+            fwrite(&fh.tag_campo4, sizeof(char), 1, fp);
+            fwrite(&fh.desc_campo4, sizeof(fh.desc_campo4), 1, fp);
+            fwrite(&fh.tag_campo5, sizeof(char), 1, fp);
+            fwrite(&fh.desc_campo5, sizeof(fh.desc_campo5), 1, fp);
+            while(i < (CLUSTER_SIZE - 210))
+            {
+                fwrite(&bloat, sizeof(char), 1, fp);
+                i++;
+            }
+        }
+        else
+        {
+            printf("Falha ao criar o arquivo!\n");
+        }
+        fclose(fp);
+    }
+    else
+    {
+        printf("O arquivo ja existe.\n");
     }
 }
 
@@ -47,7 +81,7 @@ void read_file(const char *file_name)
 
     if(file_name != NULL)
     {
-        arq_csv = fopen(file_name, "r");
+        arq_csv = fopen(file_name, "r+b");
         fgets(line_readed, sizeof(line_readed), arq_csv);
         if(arq_csv != NULL)
         {
