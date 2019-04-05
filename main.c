@@ -4,6 +4,6 @@
 
 int main(int argc, char const *argv[])
 {
-    create_bin_file("data.cdbf");
+    create_bin_file("data.cdbf", "data_.csv");
     return 0;
 }
