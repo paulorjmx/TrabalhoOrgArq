@@ -143,7 +143,7 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                         else
                         {
                             sscanf(token, " %200[^,]", cargo_servidor);
-                            cargo_servidor_size = strlen(cargo_servidor) + 1;
+                            cargo_servidor_size = strlen(cargo_servidor) + 2; // Tamanho da string + o caractere '\0' + a tag de identificacao do campo
                             reg_size += 5 + cargo_servidor_size;
                         }
                         token = strchr(token, ',');
@@ -155,7 +155,7 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                         else
                         {
                             sscanf(token, " %500[^\r\n]", nome_servidor);
-                            nome_servidor_size = strlen(nome_servidor) + 1;
+                            nome_servidor_size = strlen(nome_servidor) + 2; // Tamanho da string + o caractere '\0' + a tag de identificacao do campo
                             reg_size += 5 + nome_servidor_size;
                         }
                         if((cluster_size_free - reg_size) < 0)
@@ -220,6 +220,83 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
     }
 }
 
+void get_all_data_file(const char *file_name)
+{
+    FILE_HEADER header;
+    FILE *arq = NULL;
+    char telefone_servidor[15], nome_servidor[500], cargo_servidor[200], removido_token = '-', tag_campo = '0';
+    int id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, disk_pages = 1, nome_servidor_size = 0, cargo_servidor_size = 0;
+    long int encadeamento_lista = -1;
+    double salario_servidor = 0.0;
+    if(file_name != NULL)
+    {
+        if(access(file_name, F_OK) == 0)
+        {
+            arq = fopen(file_name, "r+b");
+            if(arq != NULL)
+            {
+                fread(&header.status, sizeof(header.status), 1, arq);
+                if(header.status == '1')
+                {
+                    fread(&header.topo_lista, sizeof(header.topo_lista), 1, arq);
+                    fread(&header.tag_campo1, sizeof(header.tag_campo1), 1, arq);
+                    fread(&header.desc_campo1, sizeof(header.desc_campo1), 1, arq);
+                    fread(&header.tag_campo2, sizeof(header.tag_campo2),1, arq);
+                    fread(&header.desc_campo2, sizeof(header.desc_campo2), 1, arq);
+                    fread(&header.tag_campo3, sizeof(header.tag_campo3),1, arq);
+                    fread(&header.desc_campo3, sizeof(header.desc_campo3), 1, arq);
+                    fread(&header.tag_campo4, sizeof(header.tag_campo4),1, arq);
+                    fread(&header.desc_campo4, sizeof(header.desc_campo4), 1, arq);
+                    fread(&header.tag_campo5, sizeof(header.tag_campo5), 1, arq);
+                    fread(&header.desc_campo5, sizeof(header.desc_campo5), 1, arq);
+                    fseek(arq, 0, SEEK_SET);
+                    header.status = '0';
+                    fwrite(&header.status, sizeof(header.status), 1, arq);
+                    fseek(arq, 32000, SEEK_SET);
+                    while(1)
+                    {
+                        if(feof(arq) != 0)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            register_bytes_readed = fread(&removido_token, sizeof(char), 1, arq);
+                            register_bytes_readed += fread(&reg_size, sizeof(int), 1, arq);
+                            register_bytes_readed += fread(&encadeamento_lista, sizeof(long int), 1, arq);
+                            register_bytes_readed += fread(&id_servidor, sizeof(int), 1, arq);
+                            register_bytes_readed += fread(&salario_servidor, sizeof(double), 1, arq);
+                            register_bytes_readed += fread(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, arq);
+                            while(register_bytes_readed < reg_size)
+                            {
+                                register_bytes_readed += fread(&nome_servidor_size, sizeof(int), 1, arq);
+                                register_bytes_readed += fread(&tag_campo, sizeof(char), 1, arq);
+                            }
+
+
+                        }
+                    }
+                    fseek(arq, 0, SEEK_SET);
+                    header.status = '1';
+                    fwrite(&header.status, sizeof(header.status), 1, arq);
+                }
+                else
+                {
+                    printf("Falha no processamento do arquivo.\n");
+                }
+                fclose(arq);
+            }
+            else
+            {
+                printf("Falha no processamento do arquivo.\n");
+            }
+        }
+        else
+        {
+            printf("Falha no processamento do arquivo.\n");
+        }
+    }
+}
 
 void print_file_header(FILE_HEADER header)
 {
