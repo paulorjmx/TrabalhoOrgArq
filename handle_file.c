@@ -82,7 +82,7 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
     FILE_HEADER header;
     FILE *arq = NULL, *arq_csv = NULL;
     char line_readed[1000], telefone_servidor[15], nome_servidor[500], cargo_servidor[200], bloat = '@', removido_token = '-', *token = NULL;
-    int id_servidor = 0, reg_size = 39, cluster_size_free = CLUSTER_SIZE, nome_servidor_size = 0, cargo_servidor_size = 0;
+    int id_servidor = 0, reg_size = 34, cluster_size_free = CLUSTER_SIZE, nome_servidor_size = 0, cargo_servidor_size = 0;
     long int encadeamento_lista = -1;
     double salario_servidor = 0.0;
 
@@ -108,7 +108,7 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                     }
                     else
                     {
-                        reg_size = 39;
+                        reg_size = 34;
                         nome_servidor_size = 0;
                         cargo_servidor_size = 0;
                         memset(&nome_servidor, 0, sizeof(nome_servidor));
@@ -143,7 +143,7 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                         else
                         {
                             sscanf(token, " %200[^,]", cargo_servidor);
-                            cargo_servidor_size = strlen(cargo_servidor) + 2; // Tamanho da string + o caractere '\0' + a tag de identificacao do campo
+                            cargo_servidor_size = strlen(cargo_servidor) + 1; // Tamanho da string + o caractere '\0' + a tag de identificacao do campo
                             reg_size += 5 + cargo_servidor_size;
                         }
                         token = strchr(token, ',');
@@ -155,7 +155,7 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                         else
                         {
                             sscanf(token, " %500[^\r\n]", nome_servidor);
-                            nome_servidor_size = strlen(nome_servidor) + 2; // Tamanho da string + o caractere '\0' + a tag de identificacao do campo
+                            nome_servidor_size = strlen(nome_servidor) + 1; // Tamanho da string + o caractere '\0' + a tag de identificacao do campo
                             reg_size += 5 + nome_servidor_size;
                         }
                         if((cluster_size_free - reg_size) < 0)
@@ -176,13 +176,13 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                         {
                             fwrite(&nome_servidor_size, sizeof(int), 1, arq);
                             fwrite(&header.tag_campo4, sizeof(char), 1, arq);
-                            fwrite(&nome_servidor, nome_servidor_size, 1, arq);
+                            fwrite(&nome_servidor, (strlen(nome_servidor) + 1), 1, arq);
                         }
                         if(cargo_servidor_size > 0)
                         {
                             fwrite(&cargo_servidor_size, sizeof(int), 1, arq);
                             fwrite(&header.tag_campo5, sizeof(char), 1, arq);
-                            fwrite(&cargo_servidor, cargo_servidor_size, 1, arq);
+                            fwrite(&cargo_servidor, (strlen(cargo_servidor) + 1), 1, arq);
                         }
                         cluster_size_free -= reg_size;
                         // printf("%d\n", reg_size);
@@ -225,7 +225,7 @@ void get_all_data_file(const char *file_name)
     FILE_HEADER header;
     FILE *arq = NULL;
     char telefone_servidor[15], nome_servidor[500], cargo_servidor[200], removido_token = '-', tag_campo = '0';
-    int id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, disk_pages = 1, nome_servidor_size = 0, cargo_servidor_size = 0;
+    int id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, disk_pages = 1, nome_servidor_size = 0, cargo_servidor_size = 0, var_field_size = 0;
     long int encadeamento_lista = -1;
     double salario_servidor = 0.0;
     if(file_name != NULL)
@@ -261,19 +261,69 @@ void get_all_data_file(const char *file_name)
                         }
                         else
                         {
-                            register_bytes_readed = fread(&removido_token, sizeof(char), 1, arq);
-                            register_bytes_readed += fread(&reg_size, sizeof(int), 1, arq);
-                            register_bytes_readed += fread(&encadeamento_lista, sizeof(long int), 1, arq);
-                            register_bytes_readed += fread(&id_servidor, sizeof(int), 1, arq);
-                            register_bytes_readed += fread(&salario_servidor, sizeof(double), 1, arq);
-                            register_bytes_readed += fread(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, arq);
-                            while(register_bytes_readed < reg_size)
+                            fread(&removido_token, sizeof(char), 1, arq);
+                            total_bytes_readed += sizeof(char);
+                            if(removido_token != '@')
                             {
-                                register_bytes_readed += fread(&nome_servidor_size, sizeof(int), 1, arq);
-                                register_bytes_readed += fread(&tag_campo, sizeof(char), 1, arq);
+                                fread(&reg_size, sizeof(int), 1, arq);
+                                total_bytes_readed += sizeof(int);
+                                fread(&encadeamento_lista, sizeof(long int), 1, arq);
+                                register_bytes_readed += sizeof(long int);
+                                fread(&id_servidor, sizeof(int), 1, arq);
+                                register_bytes_readed += sizeof(int);
+                                fread(&salario_servidor, sizeof(double), 1, arq);
+                                register_bytes_readed += sizeof(double);
+                                fread(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, arq);
+                                register_bytes_readed += sizeof(telefone_servidor) - 1;
+                                while(register_bytes_readed < reg_size)
+                                {
+                                    fread(&var_field_size, sizeof(int), 1, arq);
+                                    register_bytes_readed += sizeof(int);
+                                    fread(&tag_campo, sizeof(char), 1, arq);
+                                    register_bytes_readed += sizeof(char);
+                                    if(tag_campo == header.tag_campo4)
+                                    {
+                                        nome_servidor_size = var_field_size;
+                                        fread(&nome_servidor, nome_servidor_size , 1, arq);
+                                        register_bytes_readed += nome_servidor_size;
+                                    }
+                                    else
+                                    {
+
+                                        cargo_servidor_size = var_field_size;
+                                        fread(&cargo_servidor, cargo_servidor_size, 1, arq);
+                                        register_bytes_readed += cargo_servidor_size;
+                                    }
+                                }
+                                // printf("BYTES READED: %d\n", register_bytes_readed);
+                                printf("%d ", id_servidor);
+                                printf("%.2lf ", salario_servidor);
+                                printf("%s ", telefone_servidor);
+                                if(nome_servidor_size != 0)
+                                {
+                                    printf("%d ", strlen(nome_servidor));
+                                    printf("%s ", nome_servidor);
+                                }
+                                if(cargo_servidor_size != 0)
+                                {
+                                    printf("%d ", strlen(cargo_servidor));
+                                    printf("%s", cargo_servidor);
+                                }
+                                total_bytes_readed += reg_size;
+                                register_bytes_readed = 0;
+                                cargo_servidor_size = 0;
+                                nome_servidor_size = 0;
+                                printf("\n");
                             }
-
-
+                            else
+                            {
+                                // break;
+                                while(total_bytes_readed < CLUSTER_SIZE)
+                                {
+                                    fread(&removido_token, sizeof(char), 1, arq);
+                                    total_bytes_readed += sizeof(char);
+                                }
+                            }
                         }
                     }
                     fseek(arq, 0, SEEK_SET);
