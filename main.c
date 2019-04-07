@@ -5,5 +5,6 @@
 int main(int argc, char const *argv[])
 {
     create_bin_file("data.cdbf", "data_.csv");
+    get_all_data_file("data.cdbf");
     return 0;
 }
