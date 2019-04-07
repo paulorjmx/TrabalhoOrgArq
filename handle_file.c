@@ -184,7 +184,7 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                             fwrite(&header.tag_campo5, sizeof(char), 1, arq);
                             fwrite(&cargo_servidor, (strlen(cargo_servidor) + 1), 1, arq);
                         }
-                        cluster_size_free -= reg_size;
+                        cluster_size_free -= (reg_size + 5); // Diminui o tamanho do registro, mais o indicador de tamanho do registro, mais a flag de removido, do tamanho da pagina de disco livre.
                         // printf("%d\n", reg_size);
                         // printf("%d\n", cluster_size_free);
                         // printf("%d\n", id_servidor);
