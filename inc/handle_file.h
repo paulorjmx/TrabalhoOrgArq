@@ -8,8 +8,6 @@
             char status, tag_campo1, tag_campo2, tag_campo3, tag_campo4, tag_campo5;
         } FILE_HEADER;
 
-        void init_file_header(FILE_HEADER *header);
-        void print_file_header(FILE_HEADER header);
         void get_all_data_file(const char *file_name);
         void create_bin_file(const char *data_file_name, const char *csv_file_name);
 #endif
