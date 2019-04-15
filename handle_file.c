@@ -6,6 +6,7 @@
 
 void write_file_header(const char *file_name, FILE_HEADER *header);
 void init_file_header(FILE_HEADER *header, char *desc);
+void print_file_header(FILE_HEADER header);
 
 // typedef struct t_file_header
 // {
