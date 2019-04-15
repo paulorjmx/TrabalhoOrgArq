@@ -4,16 +4,17 @@
 #include <string.h>
 #include <unistd.h>
 
+typedef struct t_file_header
+{
+    long int topo_lista;
+    char desc_campo1[40], desc_campo2[40], desc_campo3[40], desc_campo4[40], desc_campo5[40];
+    char status, tag_campo1, tag_campo2, tag_campo3, tag_campo4, tag_campo5;
+} FILE_HEADER;
+
 void write_file_header(const char *file_name, FILE_HEADER *header);
 void init_file_header(FILE_HEADER *header, char *desc);
 void print_file_header(FILE_HEADER header);
 
-// typedef struct t_file_header
-// {
-//     long int topo_lista;
-//     char desc_campo1[40], desc_campo2[40], desc_campo3[40], desc_campo4[40], desc_campo5[40];
-//     char status, tag_campo1, tag_campo2, tag_campo3, tag_campo4, tag_campo5;
-// } FILE_HEADER;
 
 #define SIZE_FILE_HEADER 214 // Tamanho do cabecalho
 #define CLUSTER_SIZE 32000 // Tamanho do cluster em bytes
