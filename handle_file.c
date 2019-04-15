@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 void write_file_header(const char *file_name, FILE_HEADER *header);
+void init_file_header(FILE_HEADER *header, char *desc);
 
 // typedef struct t_file_header
 // {
@@ -17,22 +18,68 @@ void write_file_header(const char *file_name, FILE_HEADER *header);
 #define CLUSTER_SIZE 32000 // Tamanho do cluster em bytes
 
 
-void init_file_header(FILE_HEADER *header)
+void init_file_header(FILE_HEADER *header, char *desc)
 {
+    int i = 0;
+    char *token = NULL, d_campo1[40], d_campo2[40], d_campo3[40], d_campo4[40], d_campo5[40];
     if(header != NULL)
     {
-        header->topo_lista = -1;
-        header->status = '0';
-        strcpy(header->desc_campo1, "numero de identificacao do servidor");
-        strcpy(header->desc_campo2, "salario do servidor");
-        strcpy(header->desc_campo3, "telefone celular do servidor");
-        strcpy(header->desc_campo4, "nome do servidor");
-        strcpy(header->desc_campo5, "cargo do servidor");
-        header->tag_campo1 = '^';
-        header->tag_campo2 = '#';
-        header->tag_campo3 = '$';
-        header->tag_campo4 = '%';
-        header->tag_campo5 = '!';
+        if(desc != NULL)
+        {
+            token = desc;
+
+            sscanf(token, "%40[^,]", d_campo1);
+            for(i = (strlen(d_campo1) + 1); i < sizeof(d_campo1); i++)
+            {
+                d_campo1[i] = 0x40;
+            }
+            token = strchr(token, ',');
+            token++;
+
+            sscanf(token, "%40[^,]", d_campo2);
+            for(i = (strlen(d_campo2) + 1); i < sizeof(d_campo2); i++)
+            {
+                d_campo2[i] = 0x40;
+            }
+            token = strchr(token, ',');
+            token++;
+
+            sscanf(token, "%40[^,]", d_campo3);
+            for(i = (strlen(d_campo3) + 1); i < sizeof(d_campo3); i++)
+            {
+                d_campo3[i] = 0x40;
+            }
+            token = strchr(token, ',');
+            token++;
+
+            sscanf(token, "%40[^,]", d_campo4);
+            for(i = (strlen(d_campo4) + 1); i < sizeof(d_campo4); i++)
+            {
+                d_campo4[i] = 0x40;
+            }
+            token = strchr(token, ',');
+            token++;
+
+            sscanf(token, "%40[^\n\r]", d_campo5);
+            for(i = (strlen(d_campo5) + 1); i < sizeof(d_campo5); i++)
+            {
+                d_campo5[i] = 0x40;
+            }
+
+
+            header->status = '0';
+            header->topo_lista = -1;
+            memcpy(header->desc_campo1, d_campo1, 40);
+            memcpy(header->desc_campo2, d_campo2, 40);
+            memcpy(header->desc_campo3, d_campo3, 40);
+            memcpy(header->desc_campo4, d_campo4, 40);
+            memcpy(header->desc_campo5, d_campo5, 40);
+            header->tag_campo1 = 'i';
+            header->tag_campo2 = 's';
+            header->tag_campo3 = 't';
+            header->tag_campo4 = 'n';
+            header->tag_campo5 = 'c';
+        }
     }
 }
 
@@ -46,9 +93,8 @@ void write_file_header(const char *file_name, FILE_HEADER *header)
         fp = fopen(file_name, "wb");
         if(fp != NULL)
         {
-            init_file_header(header);
-            fwrite(&(header->topo_lista), sizeof(long int), 1, fp);
             fwrite(&(header->status), sizeof(char), 1, fp);
+            fwrite(&(header->topo_lista), sizeof(long int), 1, fp);
             fwrite(&(header->tag_campo1), sizeof(char), 1, fp);
             fwrite(&(header->desc_campo1), sizeof(header->desc_campo1), 1, fp);
             fwrite(&(header->tag_campo2), sizeof(char), 1, fp);
@@ -91,13 +137,14 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
     {
         if(access(csv_file_name, F_OK) == 0)
         {
-            write_file_header(data_file_name, &header);
-            // print_file_header(header);
             arq_csv = fopen(csv_file_name, "r");
-            arq = fopen(data_file_name, "r+b");
-            if(arq != NULL && arq_csv != NULL)
+            if(arq_csv != NULL)
             {
-                fgets(line_readed, sizeof(line_readed), arq_csv); // Pega a primeira linha do arquivo csv que nao sera inserida no arquivo de dados.
+                fgets(line_readed, sizeof(line_readed), arq_csv); // Pega a primeira linha do arquivo csv.
+                init_file_header(&header, line_readed);
+                // print_file_header(header);
+                write_file_header(data_file_name, &header);
+                arq = fopen(data_file_name, "r+b");
                 fseek(arq, CLUSTER_SIZE, SEEK_SET); // Pula o cabecalho
                 while(1)
                 {
@@ -117,16 +164,6 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                         sscanf(token, "%d", &id_servidor);
                         token = strchr(token, ',');
                         token++;
-                        if(token[0] == ',')
-                        {
-                            strcpy(telefone_servidor, "\0@@@@@@@@@@@@@");
-                        }
-                        else
-                        {
-                            sscanf(token, " %14[^,]", telefone_servidor);
-                        }
-                        token = strchr(token, ',');
-                        token++;
                         if(token[0] == '0')
                         {
                             salario_servidor = 0.0;
@@ -134,6 +171,18 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                         else
                         {
                             sscanf(token, "%lf", &salario_servidor);
+                        }
+
+                        token = strchr(token, ',');
+                        token++;
+                        if(token[0] == ',')
+                        {
+
+                            strcpy(telefone_servidor, "\0@@@@@@@@@@@@@");
+                        }
+                        else
+                        {
+                            sscanf(token, " %14[^,]", telefone_servidor);
                         }
                         token = strchr(token, ',');
                         token++;
@@ -143,9 +192,9 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                         }
                         else
                         {
-                            sscanf(token, " %200[^,]", cargo_servidor);
-                            cargo_servidor_size = strlen(cargo_servidor) + 1; // Tamanho da string + o caractere '\0' + a tag de identificacao do campo
-                            reg_size += 5 + cargo_servidor_size;
+                            sscanf(token, " %500[^,]", nome_servidor);
+                            nome_servidor_size = strlen(nome_servidor) + 1; // Tamanho da string + o caractere '\0' + a tag de identificacao do campo
+                            reg_size += 5 + nome_servidor_size;
                         }
                         token = strchr(token, ',');
                         token++;
@@ -155,9 +204,9 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                         }
                         else
                         {
-                            sscanf(token, " %500[^\r\n]", nome_servidor);
-                            nome_servidor_size = strlen(nome_servidor) + 1; // Tamanho da string + o caractere '\0' + a tag de identificacao do campo
-                            reg_size += 5 + nome_servidor_size;
+                            sscanf(token, " %200[^\r\n]", cargo_servidor);
+                            cargo_servidor_size = strlen(cargo_servidor) + 1; // Tamanho da string + o caractere '\0' + a tag de identificacao do campo
+                            reg_size += 5 + cargo_servidor_size;
                         }
                         if((cluster_size_free - (reg_size + 5)) < 0)
                         {
@@ -185,7 +234,7 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                             fwrite(&header.tag_campo5, sizeof(char), 1, arq);
                             fwrite(&cargo_servidor, (strlen(cargo_servidor) + 1), 1, arq);
                         }
-                        cluster_size_free -= (reg_size + 5); // Diminui o tamanho do registro, mais o indicador de tamanho do registro, mais a flag de removido, do tamanho da pagina de disco livre.
+                        cluster_size_free -= (reg_size + 5); // Calcula o espaço livre na pagina de disco (tamanho do registro, mais a flag de removido).
                         // printf("%d\n", reg_size);
                         // printf("%d\n", cluster_size_free);
                         // printf("%d\n", id_servidor);
@@ -194,10 +243,6 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                         // printf("%s\n", cargo_servidor);
                         // printf("%s\n", nome_servidor);
                     }
-                }
-                for(int i = 0; i < cluster_size_free; i++)
-                {
-                    fwrite(&bloat, sizeof(char), 1, arq);
                 }
             }
             else
