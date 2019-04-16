@@ -1,11 +1,11 @@
 #ifndef HANDLE_FILE_H
     #define HANDLE_FILE_H
 
-        void create_bin_file(const char *data_file_name, const char *csv_file_name);
-        void get_all_data_file(const char *file_name);
-        void search_for_id(const char *file_name, int id);
-        void search_for_salario(const char *file_name, double salario);
-        void search_for_telefone(const char *file_name, const char *telefone);
-        void search_for_nome(const char *file_name, const char *nome);
-        void search_for_cargo(const char *file_name, const char *cargo);
+        void create_bin_file(const char *data_file_name, const char *csv_file_name); //  Funcao que criar o arquivo de dados binario
+        void get_all_data_file(const char *file_name); // Funcao que recupera todos os registros do arquivo de dados binario e mostra na tela
+        void search_for_id(const char *file_name, int id); //  Funcao que recupera o registro que tem como campo incomum o id procurado
+        void search_for_salario(const char *file_name, double salario); //  Funcao que recupera o registro que tem como campo incomum o salario procurado
+        void search_for_telefone(const char *file_name, const char *telefone); //  Funcao que recupera o registro que tem como campo incomum o telefone procurado
+        void search_for_nome(const char *file_name, const char *nome); //  Funcao que recupera o registro que tem como campo incomum o nome procurado
+        void search_for_cargo(const char *file_name, const char *cargo); //  Funcao que recupera o registro que tem como campo incomum o cargo procurado
 #endif
