@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
+// Registro de cabecalho
 typedef struct t_file_header
 {
     long int topo_lista;
@@ -11,9 +12,10 @@ typedef struct t_file_header
     char status, tag_campo1, tag_campo2, tag_campo3, tag_campo4, tag_campo5;
 } FILE_HEADER;
 
-void write_file_header(const char *file_name, FILE_HEADER *header);
-void init_file_header(FILE_HEADER *header, char *desc);
-void print_file_header(FILE_HEADER header);
+
+void write_file_header(const char *file_name, FILE_HEADER *header); // Funcao que escreve o arquivo de cabecalho no arquivo de dados binario
+void init_file_header(FILE_HEADER *header, char *desc); // Funcao que inicializa a estrutura de dados FILE_HEADER
+void print_file_header(FILE_HEADER header); // Funcao utilidade que mostra na tela todos os campos do registro de cabecalho
 
 
 #define SIZE_FILE_HEADER 214 // Tamanho do cabecalho
@@ -23,17 +25,20 @@ void print_file_header(FILE_HEADER header);
 void init_file_header(FILE_HEADER *header, char *desc)
 {
     int i = 0;
-    char *token = NULL, d_campo1[40], d_campo2[40], d_campo3[40], d_campo4[40], d_campo5[40];
+    // token eh usada para percorrer a primeira linha lida no arquivo .csv
+    // d_campoX eh usada para armazenar os metadados do arquivo de dados binario. Estes serao inseridos no arquivo de dados binario.
+    // bloat eh usada para preencher com lixo o resto das strings.
+    char *token = NULL, d_campo1[40], d_campo2[40], d_campo3[40], d_campo4[40], d_campo5[40], bloat = '@';
     if(header != NULL)
     {
         if(desc != NULL)
         {
             token = desc;
 
-            sscanf(token, "%40[^,]", d_campo1);
-            for(i = (strlen(d_campo1) + 1); i < sizeof(d_campo1); i++)
+            sscanf(token, "%40[^,]", d_campo1); // Recupera a descricao do campo 1 do arquivo .csv
+            for(i = (strlen(d_campo1) + 1); i < sizeof(d_campo1); i++) // Preenche o resto da string da descricao do campo 1 com lixo.
             {
-                d_campo1[i] = '@';
+                d_campo1[i] = bloat;
             }
             token = strchr(token, ',');
             token++;
@@ -41,7 +46,7 @@ void init_file_header(FILE_HEADER *header, char *desc)
             sscanf(token, "%40[^,]", d_campo2);
             for(i = (strlen(d_campo2) + 1); i < sizeof(d_campo2); i++)
             {
-                d_campo2[i] = '@';
+                d_campo2[i] = bloat;
             }
             token = strchr(token, ',');
             token++;
@@ -49,7 +54,7 @@ void init_file_header(FILE_HEADER *header, char *desc)
             sscanf(token, "%40[^,]", d_campo3);
             for(i = (strlen(d_campo3) + 1); i < sizeof(d_campo3); i++)
             {
-                d_campo3[i] = '@';
+                d_campo3[i] = bloat;
             }
             token = strchr(token, ',');
             token++;
@@ -57,7 +62,7 @@ void init_file_header(FILE_HEADER *header, char *desc)
             sscanf(token, "%40[^,]", d_campo4);
             for(i = (strlen(d_campo4) + 1); i < sizeof(d_campo4); i++)
             {
-                d_campo4[i] = '@';
+                d_campo4[i] = bloat;
             }
             token = strchr(token, ',');
             token++;
@@ -65,9 +70,8 @@ void init_file_header(FILE_HEADER *header, char *desc)
             sscanf(token, "%40[^\n\r]", d_campo5);
             for(i = (strlen(d_campo5) + 1); i < sizeof(d_campo5); i++)
             {
-                d_campo5[i] = '@';
+                d_campo5[i] = bloat;
             }
-
 
             header->status = '0';
             header->topo_lista = -1;
@@ -87,64 +91,70 @@ void init_file_header(FILE_HEADER *header, char *desc)
 
 void write_file_header(const char *file_name, FILE_HEADER *header)
 {
-    if(access(file_name, F_OK) != 0)
+    int i = 0;
+    char bloat = '@'; // Variavel utilizada para inserir o lixo no arquivo.
+    FILE *fp = NULL;
+    fp = fopen(file_name, "wb");
+    if(fp != NULL)
     {
-        int i = 0;
-        char bloat = '@';
-        FILE *fp = NULL;
-        fp = fopen(file_name, "wb");
-        if(fp != NULL)
+        // Escreve os dados do cabecalho no arquivo de dados binario a ser criado.
+        fwrite(&(header->status), sizeof(char), 1, fp);
+        fwrite(&(header->topo_lista), sizeof(long int), 1, fp);
+        fwrite(&(header->tag_campo1), sizeof(char), 1, fp);
+        fwrite(&(header->desc_campo1), sizeof(header->desc_campo1), 1, fp);
+        fwrite(&(header->tag_campo2), sizeof(char), 1, fp);
+        fwrite(&(header->desc_campo2), sizeof(header->desc_campo2), 1, fp);
+        fwrite(&(header->tag_campo3), sizeof(char), 1, fp);
+        fwrite(&(header->desc_campo3), sizeof(header->desc_campo3), 1, fp);
+        fwrite(&(header->tag_campo4), sizeof(char), 1, fp);
+        fwrite(&(header->desc_campo4), sizeof(header->desc_campo4), 1, fp);
+        fwrite(&(header->tag_campo5), sizeof(char), 1, fp);
+        fwrite(&(header->desc_campo5), sizeof(header->desc_campo5), 1, fp);
+        while(i < (CLUSTER_SIZE - 214)) // Preenche o resto da pagina de disco com lixo.
         {
-            fwrite(&(header->status), sizeof(char), 1, fp);
-            fwrite(&(header->topo_lista), sizeof(long int), 1, fp);
-            fwrite(&(header->tag_campo1), sizeof(char), 1, fp);
-            fwrite(&(header->desc_campo1), sizeof(header->desc_campo1), 1, fp);
-            fwrite(&(header->tag_campo2), sizeof(char), 1, fp);
-            fwrite(&(header->desc_campo2), sizeof(header->desc_campo2), 1, fp);
-            fwrite(&(header->tag_campo3), sizeof(char), 1, fp);
-            fwrite(&(header->desc_campo3), sizeof(header->desc_campo3), 1, fp);
-            fwrite(&(header->tag_campo4), sizeof(char), 1, fp);
-            fwrite(&(header->desc_campo4), sizeof(header->desc_campo4), 1, fp);
-            fwrite(&(header->tag_campo5), sizeof(char), 1, fp);
-            fwrite(&(header->desc_campo5), sizeof(header->desc_campo5), 1, fp);
-            while(i < (CLUSTER_SIZE - 214))
-            {
-                fwrite(&bloat, sizeof(char), 1, fp);
-                i++;
-            }
+            fwrite(&bloat, sizeof(char), 1, fp);
+            i++;
         }
-        else
-        {
-            printf("Falha ao criar o arquivo!\n");
-        }
-        fclose(fp);
     }
     else
     {
-        printf("O arquivo ja existe.\n");
+        printf("Falha ao criar o arquivo!\n");
     }
+    fclose(fp);
 }
 
 void create_bin_file(const char *data_file_name, const char *csv_file_name)
 {
-    FILE_HEADER header;
-    FILE *arq = NULL, *arq_csv = NULL;
+    FILE_HEADER header; // Variavel utilizada para recuperar o arquivo de cabecalho do arquivo de dados binario
+    FILE *arq = NULL, *arq_csv = NULL; // Ponteiros utilizados para o arquivo de dados binario a ser criado e o arquivo .csv, respectivamente
+    // Line readed eh utilizada para ler as linhas do arquivo .csv
+    // telefone_servidor, nome_servidor e cargo_servidor sao usadas para guardar temporariamente os valores lidos do arquivo .csv
+    // token eh usada para percorrer as linhas lidas do arquivo .csv
     char line_readed[1000], telefone_servidor[15], nome_servidor[500], cargo_servidor[200], *token = NULL;
+    // bloat eh usada para preencher com lixo o restante do espaco livre da pagina de disco
+    // removido_token eh usada para inserir a flag de removido no registro
     char bloat = '@', removido_token = '-';
+    // id_servidor eh usada para guardar temporariamente o valore lido do arquivo .csv
+    // reg_size eh usada para armazenar os valores dos registros
+    // last_registry_size eh usada para armazenar o tamanho do ultimo registro armazenado no arquivo de dados
+    // cluster_size_free eh usada para guardar a informacao da quantidade de bytes ainda estao livres na pagina de disco
+    // nome_servidor_size e cargo_servidor_size servem para guardar o tamanho referentes ao nome do servidor e ao cargo do servidor, respectivamente
     int id_servidor = 0, reg_size = 34, last_registry_size = 0, cluster_size_free = CLUSTER_SIZE, nome_servidor_size = 0, cargo_servidor_size = 0;
+    // encadeamento_lista eh usada para inserir o valor dos "ponteiros" da lista no arquivo de dados binario
+    // last_registry_inserted eh usada como "ponteiro" para o ultimo registro armazenado no arquivo de dados
     long int encadeamento_lista = -1, last_registry_inserted = -1;
+    // salario_servidor eh usada para guardar temporariamente o valor lido do arquivo .csv
     double salario_servidor = 0.0;
 
     if(csv_file_name != NULL)
     {
-        if(access(csv_file_name, F_OK) == 0)
+        if(access(csv_file_name, F_OK) == 0) // Checa a existencia do arquivo .csv (Se existe)
         {
             arq_csv = fopen(csv_file_name, "r");
             if(arq_csv != NULL)
             {
-                fgets(line_readed, sizeof(line_readed), arq_csv); // Pega a primeira linha do arquivo csv.
+                fgets(line_readed, sizeof(line_readed), arq_csv); // Recupera a primeira linha do arquivo csv.
                 init_file_header(&header, line_readed);
-                // print_file_header(header);
                 write_file_header(data_file_name, &header);
                 arq = fopen(data_file_name, "r+b");
                 fseek(arq, CLUSTER_SIZE, SEEK_SET); // Pula o cabecalho
@@ -184,7 +194,6 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                             {
                                 telefone_servidor[i] = '@';
                             }
-                            // strcpy(telefone_servidor, "\0@@@@@@@@@@@@@");
                         }
                         else
                         {
@@ -248,13 +257,6 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                             fwrite(&cargo_servidor, (strlen(cargo_servidor) + 1), 1, arq);
                         }
                         cluster_size_free -= (reg_size + 5); // Calcula o espaço livre na pagina de disco (tamanho do registro, mais a flag de removido).
-                        // printf("%d\n", reg_size);
-                        // printf("%d\n", cluster_size_free);
-                        // printf("%d\n", id_servidor);
-                        // printf("%s\n", telefone_servidor);
-                        // printf("%lf\n", salario_servidor);
-                        // printf("%s\n", cargo_servidor);
-                        // printf("%s\n", nome_servidor);
                     }
                 }
             }
@@ -301,7 +303,7 @@ void get_all_data_file(const char *file_name)
                     fread(&header.topo_lista, sizeof(header.topo_lista), 1, arq);
                     fread(&header.tag_campo1, sizeof(header.tag_campo1), 1, arq);
                     fread(&header.desc_campo1, sizeof(header.desc_campo1), 1, arq);
-                    fread(&header.tag_campo2, sizeof(header.tag_campo2),1, arq);
+                    fread(&header.tag_campo2, sizeof(header.tag_campo2), 1, arq);
                     fread(&header.desc_campo2, sizeof(header.desc_campo2), 1, arq);
                     fread(&header.tag_campo3, sizeof(header.tag_campo3),1, arq);
                     fread(&header.desc_campo3, sizeof(header.desc_campo3), 1, arq);
@@ -391,12 +393,12 @@ void get_all_data_file(const char *file_name)
                                     }
                                     if(nome_servidor_size != 0)
                                     {
-                                        printf(" %d", strlen(nome_servidor));
+                                        printf(" %zd", strlen(nome_servidor));
                                         printf(" %s", nome_servidor);
                                     }
                                     if(cargo_servidor_size != 0)
                                     {
-                                        printf(" %d", strlen(cargo_servidor));
+                                        printf(" %zd", strlen(cargo_servidor));
                                         printf(" %s", cargo_servidor);
                                     }
                                     total_bytes_readed += reg_size;
@@ -418,7 +420,7 @@ void get_all_data_file(const char *file_name)
                 {
                     printf("Falha no processamento do arquivo.\n");
                 }
-                printf("Numero de paginas de disco acessadas: %ld\n", disk_pages);
+                printf("Numero de paginas de disco acessadas: %d\n", disk_pages);
                 fclose(arq);
             }
             else
@@ -592,7 +594,7 @@ void search_for_id(const char *file_name, int id)
                 {
                     printf("Registro inexistente.\n");
                 }
-                printf("\nNumero de paginas de disco acessadas: %ld\n", disk_pages);
+                printf("\nNumero de paginas de disco acessadas: %d\n", disk_pages);
                 fclose(arq);
             }
             else
@@ -766,7 +768,7 @@ void search_for_salario(const char *file_name, double salario)
                 {
                     printf("Registro inexistente.\n");
                 }
-                printf("Numero de paginas de disco acessadas: %ld\n", disk_pages);
+                printf("Numero de paginas de disco acessadas: %d\n", disk_pages);
                 fclose(arq);
             }
             else
@@ -940,7 +942,7 @@ void search_for_telefone(const char *file_name, const char *telefone)
                 {
                     printf("Registro inexistente.\n");
                 }
-                printf("Numero de paginas de disco acessadas: %ld\n", disk_pages);
+                printf("Numero de paginas de disco acessadas: %d\n", disk_pages);
                 fclose(arq);
             }
             else
@@ -1114,7 +1116,7 @@ void search_for_nome(const char *file_name, const char *nome)
                 {
                     printf("Registro inexistente.\n");
                 }
-                printf("Numero de paginas de disco acessadas: %ld\n", disk_pages);
+                printf("Numero de paginas de disco acessadas: %d\n", disk_pages);
                 fclose(arq);
             }
             else
@@ -1288,7 +1290,7 @@ void search_for_cargo(const char *file_name, const char *cargo)
                 {
                     printf("Registro inexistente.\n");
                 }
-                printf("Numero de paginas de disco acessadas: %ld\n", disk_pages);
+                printf("Numero de paginas de disco acessadas: %d\n", disk_pages);
                 fclose(arq);
             }
             else
@@ -1308,7 +1310,7 @@ void print_file_header(FILE_HEADER header)
     // if(header != NULL)
     // {
         printf("%c\n", header.status);
-        printf("%d\n", header.topo_lista);
+        printf("%ld\n", header.topo_lista);
         printf("%c\n", header.tag_campo1);
         printf("%s\n", header.desc_campo1);
         printf("%c\n", header.tag_campo2);
