@@ -131,8 +131,8 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
     FILE *arq = NULL, *arq_csv = NULL;
     char line_readed[1000], telefone_servidor[15], nome_servidor[500], cargo_servidor[200], *token = NULL;
     char bloat = '@', removido_token = '-';
-    int id_servidor = 0, reg_size = 34, cluster_size_free = CLUSTER_SIZE, nome_servidor_size = 0, cargo_servidor_size = 0;
-    long int encadeamento_lista = -1;
+    int id_servidor = 0, reg_size = 34, last_registry_size = 0, cluster_size_free = CLUSTER_SIZE, nome_servidor_size = 0, cargo_servidor_size = 0;
+    long int encadeamento_lista = -1, last_registry_inserted = -1;
     double salario_servidor = 0.0;
 
     if(csv_file_name != NULL)
@@ -179,8 +179,12 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                         token++;
                         if(token[0] == ',')
                         {
-
-                            strcpy(telefone_servidor, "\0@@@@@@@@@@@@@");
+                            telefone_servidor[0] = '\0';
+                            for(int i = 1; i < sizeof(telefone_servidor); i++)
+                            {
+                                telefone_servidor[i] = '@';
+                            }
+                            // strcpy(telefone_servidor, "\0@@@@@@@@@@@@@");
                         }
                         else
                         {
@@ -195,8 +199,8 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                         else
                         {
                             sscanf(token, " %500[^,]", nome_servidor);
-                            nome_servidor_size = strlen(nome_servidor) + 1; // Tamanho da string + o caractere '\0' + a tag de identificacao do campo
-                            reg_size += 5 + nome_servidor_size;
+                            nome_servidor_size = strlen(nome_servidor) + 2; // Tamanho da string + o caractere '\0' + tag do campo
+                            reg_size += 4 + nome_servidor_size;
                         }
                         token = strchr(token, ',');
                         token++;
@@ -207,8 +211,8 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                         else
                         {
                             sscanf(token, " %200[^\r\n]", cargo_servidor);
-                            cargo_servidor_size = strlen(cargo_servidor) + 1; // Tamanho da string + o caractere '\0' + a tag de identificacao do campo
-                            reg_size += 5 + cargo_servidor_size;
+                            cargo_servidor_size = strlen(cargo_servidor) + 2; // Tamanho da string + o caractere '\0' + tag do campo
+                            reg_size += 4 + cargo_servidor_size;
                         }
                         if((cluster_size_free - (reg_size + 5)) < 0)
                         {
@@ -216,8 +220,15 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                             {
                                 fwrite(&bloat, sizeof(char), 1, arq);
                             }
+                            fseek(arq, (last_registry_inserted + 1), SEEK_SET);
+                            fread(&last_registry_size, sizeof(int), 1, arq);
+                            last_registry_size += cluster_size_free;
+                            fseek(arq, -4, SEEK_CUR);
+                            fwrite(&last_registry_size, sizeof(int), 1, arq);
+                            fseek(arq, last_registry_size, SEEK_CUR);
                             cluster_size_free = CLUSTER_SIZE;
                         }
+                        last_registry_inserted = ftell(arq);
                         fwrite(&removido_token, sizeof(char), 1, arq);
                         fwrite(&reg_size, sizeof(int), 1, arq);
                         fwrite(&encadeamento_lista, sizeof(long int), 1, arq);
