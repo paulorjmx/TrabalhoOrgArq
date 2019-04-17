@@ -1,3 +1,11 @@
+/* ##########################################
+#                                           #
+#   Autor: Paulo Ricardo Jordao Miranda     #
+#   N USP: 10133456                         #
+#                                           #
+###########################################*/
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,25 +49,18 @@ int main(int argc, char const *argv[])
             }
             else if(strcmp(query_field, "nomeServidor") == 0)
             {
-                fgets(nome, sizeof(nome), stdin);
-                search_for_nome(query_field, nome);
+                scanf(" %500[^\n\r]", nome);
+                search_for_nome(data_file_name, nome);
             }
             else
             {
-                fgets(cargo, sizeof(cargo), stdin);
-                search_for_cargo(query_field, cargo);
+                scanf(" %200[^\n\r]", cargo);
+                search_for_cargo(data_file_name, cargo);
             }
             break;
 
         default:
             break;
     }
-    // create_bin_file("data.cdbf", "data_.csv");
-    // // get_all_data_file("data.cdbf");
-    // // search_for_id("data.cdbf", 6106893);
-    // // search_for_salario("data.cdbf", 0);
-    // // search_for_telefone("data.cdbf", "");
-    // // search_for_nome("data.cdbf", "");
-    // search_for_cargo("data.cdbf", "AUXILIAR OPERACIONAL EM AGROPECUARIA");
     return 0;
 }
