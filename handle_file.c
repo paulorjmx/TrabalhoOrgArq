@@ -1,3 +1,11 @@
+/* ##########################################
+#                                           #
+#   Autor: Paulo Ricardo Jordao Miranda     #
+#   N USP: 10133456                         #
+#                                           #
+###########################################*/
+
+
 #include "inc/handle_file.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -160,21 +168,24 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                 fseek(arq, CLUSTER_SIZE, SEEK_SET); // Pula o cabecalho
                 while(1)
                 {
-                    fgets(line_readed, sizeof(line_readed), arq_csv);
-                    token = line_readed;
-                    if(feof(arq_csv) != 0)
+                    fgets(line_readed, sizeof(line_readed), arq_csv); // Recupera a linha do arquivo .csv
+                    token = line_readed; // Faz token apontar para a primeira posicao de line_readed
+                    if(feof(arq_csv) != 0) // Se a flag de EOF foi "setada", sai do loop
                     {
                         break;
                     }
                     else
                     {
-                        reg_size = 34;
+                        reg_size = 34; // Independente do registro, o seu tamanho inicial sempre sera 34 bytes.
+                        // A cada passagem no loop, eh necessario zerar essas variaveis temporarias.
                         nome_servidor_size = 0;
                         cargo_servidor_size = 0;
                         memset(&nome_servidor, 0, sizeof(nome_servidor));
                         memset(&cargo_servidor, 0, sizeof(cargo_servidor));
+
+                        // Pega o id do Servidor que foi lido do arquivo .csv e armazena na variavel que sera escrita no arquivo binario.
                         sscanf(token, "%d", &id_servidor);
-                        token = strchr(token, ',');
+                        token = strchr(token, ','); // Avança ate a virgula
                         token++;
                         if(token[0] == '0')
                         {
@@ -187,7 +198,7 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
 
                         token = strchr(token, ',');
                         token++;
-                        if(token[0] == ',')
+                        if(token[0] == ',') // Se forem duas virgulas seguidas, entao o telefone eh nulo
                         {
                             telefone_servidor[0] = '\0';
                             for(int i = 1; i < sizeof(telefone_servidor); i++)
@@ -223,21 +234,23 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                             cargo_servidor_size = strlen(cargo_servidor) + 2; // Tamanho da string + o caractere '\0' + tag do campo
                             reg_size += 4 + cargo_servidor_size;
                         }
-                        if((cluster_size_free - (reg_size + 5)) < 0)
+                        if((cluster_size_free - (reg_size + 5)) < 0) // Verifica se nao ha espaco na pagina de disco
                         {
-                            for(int i = 0; i < cluster_size_free; i++)
+                            for(int i = 0; i < cluster_size_free; i++) // Se nao ha espaco, preenche com lixo
                             {
                                 fwrite(&bloat, sizeof(char), 1, arq);
                             }
-                            fseek(arq, (last_registry_inserted + 1), SEEK_SET);
-                            fread(&last_registry_size, sizeof(int), 1, arq);
-                            last_registry_size += cluster_size_free;
-                            fseek(arq, -4, SEEK_CUR);
+                            fseek(arq, (last_registry_inserted + 1), SEEK_SET); // Volta o ponteiro do arquivo ate o ultimo registro inserido.
+                            fread(&last_registry_size, sizeof(int), 1, arq); // Le o seu tamanho
+                            last_registry_size += cluster_size_free; // Atualiza seu tamanho, para incluir na conta o lixo inserido
+                            fseek(arq, -4, SEEK_CUR); // Volta 4 bytes para escrever o tamanho atualizado no arquivo
                             fwrite(&last_registry_size, sizeof(int), 1, arq);
-                            fseek(arq, last_registry_size, SEEK_CUR);
+                            fseek(arq, last_registry_size, SEEK_CUR); // Volta para a posicao no primeiro byte da nova pagina de disco
                             cluster_size_free = CLUSTER_SIZE;
                         }
-                        last_registry_inserted = ftell(arq);
+                        last_registry_inserted = ftell(arq); // Armazena a posicao do ultimo registro inserido no arquivo binario
+
+                        // Os procedimentos abaixo sao de escrita no arquivo binario
                         fwrite(&removido_token, sizeof(char), 1, arq);
                         fwrite(&reg_size, sizeof(int), 1, arq);
                         fwrite(&encadeamento_lista, sizeof(long int), 1, arq);
@@ -259,36 +272,41 @@ void create_bin_file(const char *data_file_name, const char *csv_file_name)
                         cluster_size_free -= (reg_size + 5); // Calcula o espaço livre na pagina de disco (tamanho do registro, mais a flag de removido).
                     }
                 }
+                fseek(arq, 0, SEEK_SET);
+                header.status = '1';
+                fwrite(&header.status, sizeof(char), 1, arq);
+                fclose(arq);
             }
             else
             {
-                printf("Falha ao criar o arquivo!\n");
+                printf("Falha no carregamento do arquivo.\n");
             }
-            fseek(arq, 0, SEEK_SET);
-            header.status = '1';
-            fwrite(&header.status, sizeof(char), 1, arq);
-            fclose(arq);
             fclose(arq_csv);
-            printf("%s\n", data_file_name);
+            printf("%s", data_file_name);
         }
         else
         {
-            printf("O arquivo csv nao existe.\n");
+            printf("Falha no carregamento do arquivo.\n");
         }
     }
     else
     {
-        printf("Digite um nome do arquivo csv.\n");
+        printf("Falha no carregamento do arquivo.\n");
     }
 }
 
 void get_all_data_file(const char *file_name)
 {
+    /* As variaveis abaixo seguem o mesmo principio do procedimento de criar o arquivo binario, exceto que, neste caso,
+      sao para recuperar os campos do registro do arquivo de dados binario */
     FILE_HEADER header;
     FILE *arq = NULL;
-    char telefone_servidor[15], nome_servidor[500], cargo_servidor[200], removido_token = '-', tag_campo = '0', bloat = '@';
+    // A variavel flag_r eh 0x00 se nao ha algum registro no arquivo de dados, ou 0x01 caso contrario.
+    char telefone_servidor[15], nome_servidor[500], cargo_servidor[200], removido_token = '-', tag_campo = '0', bloat = '@', flag_r = 0x01;
+    // disk_pages eh utilizada para contar paginas de disco acessadas.
+    // var_field_size eh utilizada em um loop para terminar de ler todo o registro
     int id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, nome_servidor_size = 0, cargo_servidor_size = 0, var_field_size = 0, disk_pages = 0;
-    long int encadeamento_lista = -1;
+    long int encadeamento_lista = -1, file_size = 0;
     double salario_servidor = 0.0;
     if(file_name != NULL)
     {
@@ -314,9 +332,15 @@ void get_all_data_file(const char *file_name)
                     fseek(arq, 0, SEEK_SET);
                     header.status = '0';
                     fwrite(&header.status, sizeof(header.status), 1, arq);
+                    fseek(arq, 0, SEEK_END);
+                    file_size = ftell(arq);
                     fseek(arq, CLUSTER_SIZE, SEEK_SET);
                     disk_pages++;
-                    while(1)
+                    file_size = (ftell(arq) - file_size);
+
+                    if(file_size < 0) { flag_r = 0x00; } // Se existerem registros, seta a flag_r como 0x00
+
+                    while(flag_r == 0x00) // Checa se o arquivo tem
                     {
                         if(feof(arq) != 0)
                         {
@@ -344,8 +368,13 @@ void get_all_data_file(const char *file_name)
                                     register_bytes_readed += sizeof(double);
                                     fread(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, arq);
                                     register_bytes_readed += sizeof(telefone_servidor) - 1;
-                                    while(register_bytes_readed < reg_size)
+
+                                    while(register_bytes_readed < reg_size) // Loop utilizado para ler o resto do registro
                                     {
+                                        /*
+                                            Se o registro eh o utilmo da pagina de disco, entao le-se byte a byte
+                                            ate acabar a pagina de disco.
+                                        */
                                         fread(&bloat, sizeof(char), 1, arq);
                                         if(bloat == '@')
                                         {
@@ -373,7 +402,7 @@ void get_all_data_file(const char *file_name)
                                             }
                                         }
                                     }
-                                    // printf("BYTES READED: %d\n", register_bytes_readed);
+
                                     printf("%d ", id_servidor);
                                     if(salario_servidor < 0.0)
                                     {
@@ -415,12 +444,19 @@ void get_all_data_file(const char *file_name)
                     fseek(arq, 0, SEEK_SET);
                     header.status = '1';
                     fwrite(&header.status, sizeof(header.status), 1, arq);
+                    if(flag_r >= 0x01)
+                    {
+                        printf("Registro inexistente.\n");
+                    }
+                    else
+                    {
+                        printf("Número de páginas de disco acessadas: %d\n", disk_pages);
+                    }
                 }
                 else
                 {
                     printf("Falha no processamento do arquivo.\n");
                 }
-                printf("Numero de paginas de disco acessadas: %d\n", disk_pages);
                 fclose(arq);
             }
             else
@@ -435,6 +471,7 @@ void get_all_data_file(const char *file_name)
     }
 }
 
+// As buscas seguem a mesma logica de recuperar todos os dados do arquivo binario.
 void search_for_id(const char *file_name, int id)
 {
     FILE_HEADER header;
@@ -585,16 +622,19 @@ void search_for_id(const char *file_name, int id)
                     fseek(arq, 0, SEEK_SET);
                     header.status = '1';
                     fwrite(&header.status, sizeof(header.status), 1, arq);
+                    if(flag_found != 0x00)
+                    {
+                        printf("Registro inexistente.\n");
+                    }
+                    else
+                    {
+                        printf("\nNúmero de páginas de disco acessadas: %d\n", disk_pages);
+                    }
                 }
                 else
                 {
                     printf("Falha no processamento do arquivo.\n");
                 }
-                if(flag_found != 0x00)
-                {
-                    printf("Registro inexistente.\n");
-                }
-                printf("\nNumero de paginas de disco acessadas: %d\n", disk_pages);
                 fclose(arq);
             }
             else
@@ -759,16 +799,19 @@ void search_for_salario(const char *file_name, double salario)
                     fseek(arq, 0, SEEK_SET);
                     header.status = '1';
                     fwrite(&header.status, sizeof(header.status), 1, arq);
+                    if(flag_found != 0x00)
+                    {
+                        printf("Registro inexistente.\n");
+                    }
+                    else
+                    {
+                        printf("Número de páginas de disco acessadas: %d\n", disk_pages);
+                    }
                 }
                 else
                 {
                     printf("Falha no processamento do arquivo.\n");
                 }
-                if(flag_found != 0x00)
-                {
-                    printf("Registro inexistente.\n");
-                }
-                printf("Numero de paginas de disco acessadas: %d\n", disk_pages);
                 fclose(arq);
             }
             else
@@ -933,16 +976,19 @@ void search_for_telefone(const char *file_name, const char *telefone)
                     fseek(arq, 0, SEEK_SET);
                     header.status = '1';
                     fwrite(&header.status, sizeof(header.status), 1, arq);
+                    if(flag_found != 0x00)
+                    {
+                        printf("Registro inexistente.\n");
+                    }
+                    else
+                    {
+                        printf("Número de páginas de disco acessadas: %d\n", disk_pages);
+                    }
                 }
                 else
                 {
                     printf("Falha no processamento do arquivo.\n");
                 }
-                if(flag_found != 0x00)
-                {
-                    printf("Registro inexistente.\n");
-                }
-                printf("Numero de paginas de disco acessadas: %d\n", disk_pages);
                 fclose(arq);
             }
             else
@@ -1107,16 +1153,19 @@ void search_for_nome(const char *file_name, const char *nome)
                     fseek(arq, 0, SEEK_SET);
                     header.status = '1';
                     fwrite(&header.status, sizeof(header.status), 1, arq);
+                    if(flag_found != 0x00)
+                    {
+                        printf("Registro inexistente.\n");
+                    }
+                    else
+                    {
+                        printf("Número de páginas de disco acessadas: %d\n", disk_pages);
+                    }
                 }
                 else
                 {
                     printf("Falha no processamento do arquivo.\n");
                 }
-                if(flag_found != 0x00)
-                {
-                    printf("Registro inexistente.\n");
-                }
-                printf("Numero de paginas de disco acessadas: %d\n", disk_pages);
                 fclose(arq);
             }
             else
@@ -1281,16 +1330,19 @@ void search_for_cargo(const char *file_name, const char *cargo)
                     fseek(arq, 0, SEEK_SET);
                     header.status = '1';
                     fwrite(&header.status, sizeof(header.status), 1, arq);
+                    if(flag_found != 0x00)
+                    {
+                        printf("Registro inexistente.\n");
+                    }
+                    else
+                    {
+                        printf("Número de páginas de disco acessadas: %d\n", disk_pages);
+                    }
                 }
                 else
                 {
                     printf("Falha no processamento do arquivo.\n");
                 }
-                if(flag_found != 0x00)
-                {
-                    printf("Registro inexistente.\n");
-                }
-                printf("Numero de paginas de disco acessadas: %d\n", disk_pages);
                 fclose(arq);
             }
             else
