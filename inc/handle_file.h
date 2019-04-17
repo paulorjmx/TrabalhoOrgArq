@@ -1,3 +1,10 @@
+/* ##########################################
+#                                           #
+#   Autor: Paulo Ricardo Jordao Miranda     #
+#   N USP: 10133456                         #
+#                                           #
+###########################################*/
+
 #ifndef HANDLE_FILE_H
     #define HANDLE_FILE_H
 
