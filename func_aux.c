@@ -1,7 +1,6 @@
 #include "inc/func_aux.h"
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include <ctype.h>
 
 void binarioNaTela1(FILE *ponteiroArquivoBinario) {
