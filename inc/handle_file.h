@@ -15,4 +15,5 @@
         void search_for_telefone(const char *file_name, const char *telefone); //  Funcao que recupera o registro que tem como campo incomum o telefone procurado
         void search_for_nome(const char *file_name, const char *nome); //  Funcao que recupera o registro que tem como campo incomum o nome procurado
         void search_for_cargo(const char *file_name, const char *cargo); //  Funcao que recupera o registro que tem como campo incomum o cargo procurado
+        void remove_by_id(const char *file_name, int id); // Funcao que remove um registro baseado em seu idServidor
 #endif
