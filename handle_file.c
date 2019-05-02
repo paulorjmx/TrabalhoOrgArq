@@ -1493,7 +1493,7 @@ void remove_by_id(const char *file_name, int id)
                                     {
                                         fseek(arq, (reg_size - register_bytes_readed), SEEK_CUR);
                                     }
-                                    else
+                                    else if(id == id_servidor && removido_token == '*')
                                     {
                                         flag_removed = 0x00;
                                         break;
@@ -1518,14 +1518,6 @@ void remove_by_id(const char *file_name, int id)
                     header.status = '1';
                     fwrite(&header.status, sizeof(header.status), 1, arq);
                     fwrite(&(list[0].byte_offset), sizeof(long int), 1, arq);
-                    if(flag_found != 0x00)
-                    {
-                        printf("Registro inexistente.\n");
-                    }
-                    else
-                    {
-
-                    }
                 }
                 else
                 {
