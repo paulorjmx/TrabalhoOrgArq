@@ -1377,10 +1377,9 @@ void remove_by_id(const char *file_name, int id)
     FILE_HEADER header;
     FILE_LIST list[1000];
     FILE *arq = NULL;
-    char removido_token = '-', removido_mark = '*', tag_campo = '0', bloat = '@', flag_found = 0x01, flag_removed = 0x01;
-    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, nome_servidor_size = 0, cargo_servidor_size = 0, var_field_size = 0, disk_pages = 0, ptr_list = -1;
+    char removido_token = '-', removido_mark = '*', bloat = '@', flag_found = 0x01, flag_removed = 0x01;
+    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, disk_pages = 0, ptr_list = -1;
     long int encadeamento_lista = -1;
-    double salario_servidor = 0.0;
     if(file_name != NULL)
     {
         if(access(file_name, F_OK) == 0)
@@ -1411,25 +1410,22 @@ void remove_by_id(const char *file_name, int id)
                     if(header.topo_lista != -1)
                     {
                         list[++ptr_list].byte_offset = header.topo_lista; // Recupera o primeiro elemento da lista de registros removidos.
-                        fseek(arq, (list[ptr_list].byte_offset + 1), SEEK_SET); // Vai ate o primeiro elemento da lista de registros removidos.
+                        fseek(arq, list[ptr_list].byte_offset + 1, SEEK_SET); // Vai ate o primeiro elemento da lista de registros removidos.
                         fread(&reg_size, sizeof(int), 1, arq);
                         list[ptr_list].reg_size = reg_size;
                         fread(&(list[++ptr_list].byte_offset), sizeof(long int), 1, arq);
+
                         while(list[ptr_list].byte_offset != -1) // Recupera todos os elementos da lista
                         {
-                            fseek(arq, list[ptr_list].byte_offset, SEEK_SET);
+                            fseek(arq, list[ptr_list].byte_offset + 1, SEEK_SET); // Recupera o proximo endereco onde esta o proximo elemento.
                             fread(&reg_size, sizeof(int), 1, arq);
                             list[ptr_list].reg_size = reg_size;
-                            fread(&list[++ptr_list].byte_offset, sizeof(long int), 1, arq);
-                        }
-                        for(int j = 0; j < ptr_list; j++)
-                        {
-                            printf("BYTE_OFFSET: %ld\n", list[j].byte_offset);
-                            printf("REG_SIZE: %d\n", list[j].reg_size);
+                            fread(&(list[++ptr_list].byte_offset), sizeof(long int), 1, arq);
                         }
                         fseek(arq, CLUSTER_SIZE, SEEK_SET); // Volta ao comeco do arquivo
                     }
-                    while(flag_found != 0x00)
+
+                    while(flag_found != 0x00 && flag_removed != 0x00)
                     {
                         if(feof(arq) != 0)
                         {
@@ -1445,7 +1441,7 @@ void remove_by_id(const char *file_name, int id)
                                 {
                                     break;
                                 }
-                                else if(removido_token == '-')
+                                else
                                 {
                                     fread(&reg_size, sizeof(int), 1, arq);
                                     total_bytes_readed += sizeof(int);
@@ -1453,13 +1449,12 @@ void remove_by_id(const char *file_name, int id)
                                     register_bytes_readed += sizeof(long int);
                                     fread(&id_servidor, sizeof(int), 1, arq);
                                     register_bytes_readed += sizeof(int);
-                                    if(id_servidor == id) //  Se o valor do campo for igual ao valor a ser buscado, remova o resto do registro.
+                                    if(id_servidor == id && removido_token == '-') //  Se o valor do campo for igual ao valor a ser buscado e nao foi removido.
                                     {
                                         fseek(arq, -17, SEEK_CUR);
                                         encadeamento_lista = ftell(arq);
                                         i = ptr_list;
-                                        // printf("\nLIST REG SIZE: %d\n", list[i].reg_size);
-                                        while(i > -1 && reg_size > list[i].reg_size)
+                                        while(i > -1 && reg_size < list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
                                         {
                                             list[(i + 1)].reg_size = list[i].reg_size;
                                             list[(i + 1)].byte_offset = list[i].byte_offset;
@@ -1467,53 +1462,55 @@ void remove_by_id(const char *file_name, int id)
                                         }
                                         list[(i + 1)].byte_offset = encadeamento_lista;
                                         list[(i + 1)].reg_size = reg_size;
-                                        // ptr_list++;
                                         fwrite(&removido_mark, sizeof(char), 1, arq);
                                         fread(&reg_size, sizeof(int), 1, arq);
                                         encadeamento_lista = -1;
                                         fwrite(&encadeamento_lista, sizeof(long int), 1, arq);
-                                        for(int j = 0; j < sizeof(int); j++) // Coloca lixo no campo id
+                                        for(int j = 0; j < sizeof(int); j++) // Coloca lixo no campo idServidor
                                         {
                                             fwrite(&bloat, sizeof(char), 1, arq);
                                         }
-                                        for(int j = 0; j < sizeof(double); j++)
+                                        for(int j = 0; j < sizeof(double); j++) // Coloca lixo no campo salarioServidor
                                         {
                                             fwrite(&bloat, sizeof(char), 1, arq);
                                         }
                                         register_bytes_readed += sizeof(double);
-                                        for(int j = 0; j < 14; j++)
+                                        for(int j = 0; j < 14; j++) // Coloca lixo no campo telefoneServidor
                                         {
                                             fwrite(&bloat, sizeof(char), 1, arq);
                                         }
                                         register_bytes_readed += 14;
-                                        while(register_bytes_readed < reg_size)
+                                        while(register_bytes_readed < reg_size) // Coloca lixo nos campos de tamanho variavel.
                                         {
                                             fwrite(&bloat, sizeof(char), 1, arq);
                                             register_bytes_readed++;
                                         }
                                         flag_found = 0x00;
+                                        flag_removed = 0x00;
                                         break;
                                     }
-                                    else
+                                    else if(removido_token == '-')
                                     {
                                         fseek(arq, (reg_size - register_bytes_readed), SEEK_CUR);
                                     }
+                                    else
+                                    {
+                                        flag_removed = 0x00;
+                                        break;
+                                    }
                                     total_bytes_readed += reg_size;
                                     register_bytes_readed = 0;
-                                    cargo_servidor_size = 0;
-                                    nome_servidor_size = 0;
-                                }
-                                else if(removido_token == '*')
-                                {
                                 }
                             }
                             total_bytes_readed = 0;
                             disk_pages++;
                         }
                     }
-                    // Atualizar a lista
+                    // Atualiza a lista
                     for(int j = 0; j < ptr_list; j++)
                     {
+                        printf("BYTE_OFFSET: %ld\n", list[j].byte_offset);
+                        printf("REG_SIZE: %d\n", list[j].reg_size);
                         fseek(arq, list[j].byte_offset + 5, SEEK_SET);
                         fwrite(&list[(j + 1)].byte_offset, sizeof(long int), 1, arq);
                     }
