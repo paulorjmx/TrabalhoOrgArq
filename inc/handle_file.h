@@ -21,4 +21,6 @@
         void remove_by_telefone(const char *file_name, const char *telefone); // Funcao que remove um registro baseado no campo telefone
         void remove_by_nome(const char *file_name, const char *nome); // Funcao que remove um registro baseado no campo nome
         void remove_by_cargo(const char *file_name, const char *cargo); // Funcao que remove um registro baseado no campo cargo
+        void insert_bin(const char *file_name, int id, double salario, const char *telefone, const char *nome, const char *cargo); // Funcao que insere um registro novo
+
 #endif
