@@ -1845,7 +1845,7 @@ void remove_by_nome(const char *file_name, const char *nome)
     FILE_LIST list[LIST_TOTAL_SIZE]; // List eh utilizada para guardar os byte offsets dos registros removidos logicamente.
     FILE *arq = NULL;
     // removido_mark serve para marcar o registro como removido.
-    char nome_servidor[500], telefone_servidor[15], removido_token = '-', removido_mark = '*', bloat = '@', tag_campo = '';
+    char nome_servidor[500], telefone_servidor[15], removido_token = '-', removido_mark = '*', bloat = '@', tag_campo = '#';
     int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, variable_field_size = 0, disk_pages = 0, ptr_list = -1;
     // current_register e um ponteiro auxiliar para apontar para o comeco de cada registro do arquivo no decorrer do loop
     long int encadeamento_lista = -1, current_register = 0;
@@ -2014,7 +2014,7 @@ void remove_by_cargo(const char *file_name, const char *cargo)
     FILE_LIST list[LIST_TOTAL_SIZE]; // List eh utilizada para guardar os byte offsets dos registros removidos logicamente.
     FILE *arq = NULL;
     // removido_mark serve para marcar o registro como removido.
-    char cargo_servidor[200], nome_servidor[500], telefone_servidor[15], removido_token = '-', removido_mark = '*', bloat = '@', tag_campo = '';
+    char cargo_servidor[200], nome_servidor[500], telefone_servidor[15], removido_token = '-', removido_mark = '*', bloat = '@', tag_campo = '#';
     int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, variable_field_size = 0, disk_pages = 0, ptr_list = -1;
     // current_register e um ponteiro auxiliar para apontar para o comeco de cada registro do arquivo no decorrer do loop
     long int encadeamento_lista = -1, current_register = 0;
@@ -2109,7 +2109,7 @@ void remove_by_cargo(const char *file_name, const char *cargo)
                                             register_bytes_readed += variable_field_size;
                                         }
                                     }
-                                    if(strcmp(nome_servidor, nome) == 0) //  Se o valor do campo for igual ao valor a ser buscado e nao foi removido.
+                                    if(strcmp(cargo_servidor, cargo) == 0) //  Se o valor do campo for igual ao valor a ser buscado e nao foi removido.
                                     {
                                         i = ptr_list;
                                         while(i > -1 && reg_size < list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
@@ -2230,6 +2230,6 @@ int binary_search(FILE_LIST *l, int list_size)
 {
     if(l != NULL)
     {
-        
+
     }
 }
