@@ -33,6 +33,7 @@ void write_file_header(const char *file_name, FILE_HEADER *header); // Funcao qu
 void init_file_header(FILE_HEADER *header, char *desc); // Funcao que inicializa a estrutura de dados FILE_HEADER
 void print_file_header(FILE_HEADER header); // Funcao utilidade que mostra na tela todos os campos do registro de cabecalho
 void init_file_list(FILE_LIST *l, int list_size); // Funcao utilizada para inicializar a lista de registros removidos
+int binary_search(FILE_LIST *l, int list_size); // Funcao utilizada para buscar na lista de registros removidos, seguindo a abordagem best fit
 
 
 
@@ -2181,6 +2182,37 @@ void remove_by_cargo(const char *file_name, const char *cargo)
     }
 }
 
+void insert_bin(const char *file_name, int id, double salario, const char *telefone, const char *nome, const char *cargo)
+{
+    FILE_HEADER header;
+    FILE_LIST list[LIST_TOTAL_SIZE];
+    FILE *arq = NULL;
+
+    if(file_name != NULL)
+    {
+        if(access(file_name, F_OK) == 0)
+        {
+            arq = fopen(file_name, "r+b");
+            if(arq != NULL)
+            {
+
+            }
+            else
+            {
+                printf("Falha no processamento do arquivo.\n");
+            }
+            fclose(arq);
+        }
+        else
+        {
+            printf("Falha no processamento do arquivo.\n");
+        }
+    }
+    else
+    {
+        printf("Falha no processamento do arquivo.\n");
+    }
+}
 
 void init_file_list(FILE_LIST *l, int list_size)
 {
@@ -2191,5 +2223,13 @@ void init_file_list(FILE_LIST *l, int list_size)
             l[i].byte_offset = -1;
             l[i].reg_size = INT_MAX;
         }
+    }
+}
+
+int binary_search(FILE_LIST *l, int list_size)
+{
+    if(l != NULL)
+    {
+        
     }
 }
