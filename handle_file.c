@@ -2194,6 +2194,92 @@ void remove_by_cargo(const char *file_name, const char *cargo)
     }
 }
 
+void insert_bin(const char *file_name, int id, double salario, const char *telefone, const char *nome, const char *cargo)
+{
+    FILE_HEADER header;
+    FILE_LIST list[LIST_TOTAL_SIZE];
+    FILE *arq = NULL;
+    char nome_servidor[500], cargo_servidor[200], telefone_servidor[15], removido_token = '-',  bloat = '@';
+    int  reg_size = 0, disk_pages = 0, ptr_list = -1;
+    long int encadeamento_lista = -1, file_size = 0;
+    double salario_servidor = 0.0, qt_disk_pages = 0.0;
+    if(file_name != NULL)
+    {
+        if(access(file_name, F_OK) == 0)
+        {
+            arq = fopen(file_name, "r+b");
+            if(arq != NULL)
+            {
+                fread(&header.status, sizeof(header.status), 1, arq);
+                if(header.status == '1')
+                {
+                    if(strlen(nome) > 0)
+                    {
+                        reg_size += 2 + strlen(nome);
+                    }
+                    if(strlen(cargo) > 0)
+                    {
+                        reg_size += 2 + strlen(cargo);
+                    }
+                    init_file_list(list, LIST_TOTAL_SIZE);
+                    fread(&header.topo_lista, sizeof(header.topo_lista), 1, arq);
+                    fread(&header.tag_campo1, sizeof(header.tag_campo1), 1, arq);
+                    fread(&header.desc_campo1, sizeof(header.desc_campo1), 1, arq);
+                    fread(&header.tag_campo2, sizeof(header.tag_campo2),1, arq);
+                    fread(&header.desc_campo2, sizeof(header.desc_campo2), 1, arq);
+                    fread(&header.tag_campo3, sizeof(header.tag_campo3),1, arq);
+                    fread(&header.desc_campo3, sizeof(header.desc_campo3), 1, arq);
+                    fread(&header.tag_campo4, sizeof(header.tag_campo4),1, arq);
+                    fread(&header.desc_campo4, sizeof(header.desc_campo4), 1, arq);
+                    fread(&header.tag_campo5, sizeof(header.tag_campo5), 1, arq);
+                    fread(&header.desc_campo5, sizeof(header.desc_campo5), 1, arq);
+                    fseek(arq, 0, SEEK_SET);
+                    header.status = '0';
+                    fwrite(&header.status, sizeof(header.status), 1, arq);
+                    disk_pages++;
+                    if(header.topo_lista != -1)
+                    {
+                        list[++ptr_list].byte_offset = header.topo_lista; // Recupera o primeiro elemento da lista de registros removidos.
+                        fseek(arq, list[ptr_list].byte_offset + 1, SEEK_SET); // Vai ate o primeiro elemento da lista de registros removidos.
+                        fread(&(list[ptr_list].reg_size), sizeof(int), 1, arq); // Recupera o tamanho do registro
+                        fread(&(list[++ptr_list].byte_offset), sizeof(long int), 1, arq); // Recupera o endereco do segundo no da lista
+
+                        while(list[ptr_list].byte_offset != -1) // Recupera todos os elementos da lista
+                        {
+                            fseek(arq, list[ptr_list].byte_offset + 1, SEEK_SET); // Recupera o proximo endereco onde esta o proximo elemento.
+                            fread(&(list[ptr_list].reg_size), sizeof(int), 1, arq);
+                            fread(&(list[++ptr_list].byte_offset), sizeof(long int), 1, arq);
+                        }
+                    }
+                    else
+                    {
+
+                    }
+                    fseek(arq, CLUSTER_SIZE, SEEK_SET); // Volta ao comeco do arquivo
+                }
+                else
+                {
+                    printf("Falha no processamento do arquivo.\n");
+                }
+                fseek(arq, 0, SEEK_SET);
+                header.status = '1';
+                fwrite(&header.status, sizeof(header.status), 1, arq);
+                fwrite(&(list[0].byte_offset), sizeof(long int), 1, arq); // Escreve no cabecalho o primeiro no da lista
+                // printf("DISK PAGES: %d\n", disk_pages);
+            }
+            else
+            {
+                printf("Falha no processamento do arquivo.\n");
+            }
+            fclose(arq);
+        }
+        else
+        {
+            printf("Falha no processamento do arquivo.\n");
+        }
+    }
+}
+
 void init_file_list(FILE_LIST *l, int list_size)
 {
     if(l != NULL)
