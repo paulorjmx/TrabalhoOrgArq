@@ -1468,10 +1468,11 @@ void remove_by_id(const char *file_name, int id)
                                         fseek(arq, current_register, SEEK_SET);
                                         fwrite(&removido_mark, sizeof(char), 1, arq);
                                         fseek(arq, 12, SEEK_CUR);
-                                        while(register_bytes_readed < reg_size) // Coloca lixo nos campos de tamanho variavel.
+                                        register_bytes_readed = reg_size - 8;
+                                        while(register_bytes_readed > 0)
                                         {
                                             fwrite(&bloat, sizeof(char), 1, arq);
-                                            register_bytes_readed++;
+                                            register_bytes_readed--;
                                         }
                                         flag_found = 0x00;
                                         flag_removed = 0x00;
@@ -1627,12 +1628,18 @@ void remove_by_salario(const char *file_name, double salario)
                                         fseek(arq, current_register, SEEK_SET); // Volta para o comeco do registro
                                         fwrite(&removido_mark, sizeof(char), 1, arq); // Marca como removido.
                                         fseek(arq, 12, SEEK_CUR); // Pula o campo do tamanho do registro e do encadeamento da lista
-                                        register_bytes_readed -= 12; // Retira o tamanho do campo idServidor e do salarioServidor, para preencher diretamente com lixo
-                                        while(register_bytes_readed < reg_size) // Coloca lixo nos campos do registro.
+                                        register_bytes_readed = reg_size - 8;
+                                        while(register_bytes_readed > 0)
                                         {
                                             fwrite(&bloat, sizeof(char), 1, arq);
-                                            register_bytes_readed++;
+                                            register_bytes_readed--;
                                         }
+                                        // register_bytes_readed -= 12; // Retira o tamanho do campo idServidor e do salarioServidor, para preencher diretamente com lixo
+                                        // while(register_bytes_readed < reg_size) // Coloca lixo nos campos do registro.
+                                        // {
+                                        //     fwrite(&bloat, sizeof(char), 1, arq);
+                                        //     register_bytes_readed++;
+                                        // }
                                     }
                                     else // Se o campo nao for igual o buscado, pula o tamanho do registro.
                                     {
@@ -1781,11 +1788,11 @@ void remove_by_telefone(const char *file_name, const char *telefone)
                                         fseek(arq, current_register, SEEK_SET); // Volta para o comeco do registro
                                         fwrite(&removido_mark, sizeof(char), 1, arq); // Marca como removido.
                                         fseek(arq, 12, SEEK_CUR); // Pula o campo do tamanho do registro e do encadeamento da lista
-                                        register_bytes_readed -= 26; // Retira o tamanho do campo idServidor, salarioServidor e telefonServidor, para preencher diretamente com lixo
-                                        while(register_bytes_readed < reg_size) // Coloca lixo nos campos do registro.
+                                        register_bytes_readed -= reg_size - 8; // Muda o valor para preencher os campos com lixo
+                                        while(register_bytes_readed > 0) // Coloca lixo nos campos do registro.
                                         {
                                             fwrite(&bloat, sizeof(char), 1, arq);
-                                            register_bytes_readed++;
+                                            register_bytes_readed--;
                                         }
                                     }
                                     else // Se o campo nao for igual o buscado, pula o tamanho do registro.
