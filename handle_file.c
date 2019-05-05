@@ -1845,8 +1845,8 @@ void remove_by_nome(const char *file_name, const char *nome)
     FILE_LIST list[LIST_TOTAL_SIZE]; // List eh utilizada para guardar os byte offsets dos registros removidos logicamente.
     FILE *arq = NULL;
     // removido_mark serve para marcar o registro como removido.
-    char nome_servidor[500], cargo_servidor[200], telefone_servidor[15], removido_token = '-', removido_mark = '*', bloat = '@', tag_campo = '#';
-    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, variable_field_size = 0, disk_pages = 0, ptr_list = -1;
+    char nome_servidor[500], cargo_servidor[200], telefone_servidor[15], removido_token = '-', removido_mark = '*', bloat = '@', trash = '@', tag_campo = '#';
+    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, var_field_size = 0, disk_pages = 0, ptr_list = -1;
     // current_register e um ponteiro auxiliar para apontar para o comeco de cada registro do arquivo no decorrer do loop
     long int encadeamento_lista = -1, current_register = 0;
     double salario_servidor = 0.0;
@@ -1922,25 +1922,36 @@ void remove_by_nome(const char *file_name, const char *nome)
                                     fread(&salario_servidor, sizeof(double), 1, arq);
                                     register_bytes_readed += sizeof(double);
                                     fread(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, arq);
-                                    register_bytes_readed += (sizeof(telefone_servidor) - 1);
-                                    while(register_bytes_readed < reg_size) // Recupera os campos de tamanho variavel
+                                    register_bytes_readed += sizeof(telefone_servidor) - 1;
+
+                                    while(register_bytes_readed < reg_size) // Loop utilizado para ler o resto do registro
                                     {
-                                        fread(&variable_field_size, sizeof(int), 1, arq);
-                                        register_bytes_readed += sizeof(int);
-                                        fread(&tag_campo, sizeof(char), 1, arq);
-                                        register_bytes_readed += sizeof(char);
-                                        if(tag_campo == header.tag_campo4) // se for nome
+                                        fread(&trash, sizeof(char), 1, arq);
+                                        if(trash == '@')
                                         {
-                                            fread(&nome_servidor, (variable_field_size - 1), 1, arq);
-                                            register_bytes_readed += variable_field_size;
+                                            register_bytes_readed++;
                                         }
-                                        else if(tag_campo == header.tag_campo5)
+                                        else
                                         {
-                                            fread(&cargo_servidor, (variable_field_size - 1), 1, arq);
-                                            register_bytes_readed += variable_field_size;
+                                            fseek(arq, -1, SEEK_CUR);
+                                            fread(&var_field_size, sizeof(int), 1, arq);
+                                            register_bytes_readed += sizeof(int);
+                                            fread(&tag_campo, sizeof(char), 1, arq);
+                                            register_bytes_readed += sizeof(char);
+                                            if(tag_campo == header.tag_campo4)
+                                            {
+                                                fread(&nome_servidor, (var_field_size - 1) , 1, arq);
+                                                register_bytes_readed += var_field_size;
+                                            }
+                                            else if(tag_campo == header.tag_campo5)
+                                            {
+
+                                                fread(&cargo_servidor, (var_field_size - 1), 1, arq);
+                                                register_bytes_readed += var_field_size;
+                                            }
                                         }
                                     }
-                                    if(strcmp(nome_servidor, nome) == 0) //  Se o valor do campo for igual ao valor a ser buscado e nao foi removido.
+                                    if(strcmp(nome_servidor, nome) == 0)
                                     {
                                         i = ptr_list;
                                         while(i > -1 && reg_size < list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
@@ -1952,36 +1963,18 @@ void remove_by_nome(const char *file_name, const char *nome)
                                         list[(i + 1)].byte_offset = current_register;
                                         list[(i + 1)].reg_size = reg_size;
                                         ptr_list++; // Atualiza o ponteiro da lista.
-                                        fseek(arq, current_register, SEEK_SET); // Volta para o comeco do registro
+                                        fseek(arq, current_register, SEEK_SET);
                                         fwrite(&removido_mark, sizeof(char), 1, arq); // Marca como removido.
                                         fseek(arq, 12, SEEK_CUR); // Pula o campo do tamanho do registro e do encadeamento da lista
-                                        if(strlen(cargo_servidor) > 0 && strlen(nome_servidor) > 0)
-                                        {
-                                            register_bytes_readed = register_bytes_readed - (40 + strlen(nome_servidor) + strlen(cargo_servidor)); // Retira o tamanho dos campos recuperados
-                                        }
-                                        else
-                                        {
-                                            register_bytes_readed = register_bytes_readed - (34 + strlen(nome_servidor) + strlen(cargo_servidor)); // Retira o tamanho dos campos recuperados
-                                        }
-                                        while(register_bytes_readed < reg_size) // Coloca lixo nos campos do registro.
+                                        register_bytes_readed = reg_size - 8;
+                                        while(register_bytes_readed > 0)
                                         {
                                             fwrite(&bloat, sizeof(char), 1, arq);
-                                            register_bytes_readed++;
+                                            register_bytes_readed--;
                                         }
-                                    }
-                                    else // Se o campo nao for igual o buscado, pula o tamanho do registro.
-                                    {
-                                        fseek(arq, (reg_size - register_bytes_readed), SEEK_CUR);
                                     }
                                     total_bytes_readed += reg_size;
                                     register_bytes_readed = 0;
-                                    variable_field_size = 0;
-                                }
-                                else if(removido_token == '*') // Se este registro estiver removido, pula ele
-                                {
-                                    fread(&reg_size, sizeof(int), 1, arq);
-                                    total_bytes_readed += sizeof(int) + reg_size;
-                                    fseek(arq, reg_size, SEEK_CUR);
                                 }
                             }
                             total_bytes_readed = 0;
@@ -2026,8 +2019,8 @@ void remove_by_cargo(const char *file_name, const char *cargo)
     FILE_LIST list[LIST_TOTAL_SIZE]; // List eh utilizada para guardar os byte offsets dos registros removidos logicamente.
     FILE *arq = NULL;
     // removido_mark serve para marcar o registro como removido.
-    char nome_servidor[500], cargo_servidor[200], telefone_servidor[15], removido_token = '-', removido_mark = '*', bloat = '@', tag_campo = '#';
-    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, variable_field_size = 0, disk_pages = 0, ptr_list = -1;
+    char nome_servidor[500], cargo_servidor[200], telefone_servidor[15], removido_token = '-', removido_mark = '*', bloat = '@', trash = '@', tag_campo = '#';
+    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, var_field_size = 0, disk_pages = 0, ptr_list = -1;
     // current_register e um ponteiro auxiliar para apontar para o comeco de cada registro do arquivo no decorrer do loop
     long int encadeamento_lista = -1, current_register = 0;
     double salario_servidor = 0.0;
@@ -2103,25 +2096,36 @@ void remove_by_cargo(const char *file_name, const char *cargo)
                                     fread(&salario_servidor, sizeof(double), 1, arq);
                                     register_bytes_readed += sizeof(double);
                                     fread(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, arq);
-                                    register_bytes_readed += (sizeof(telefone_servidor) - 1);
-                                    while(register_bytes_readed < reg_size) // Recupera os campos de tamanho variavel
+                                    register_bytes_readed += sizeof(telefone_servidor) - 1;
+
+                                    while(register_bytes_readed < reg_size) // Loop utilizado para ler o resto do registro
                                     {
-                                        fread(&variable_field_size, sizeof(int), 1, arq);
-                                        register_bytes_readed += sizeof(int);
-                                        fread(&tag_campo, sizeof(char), 1, arq);
-                                        register_bytes_readed += sizeof(char);
-                                        if(tag_campo == header.tag_campo4) // se for nome
+                                        fread(&trash, sizeof(char), 1, arq);
+                                        if(trash == '@')
                                         {
-                                            fread(&nome_servidor, (variable_field_size - 1), 1, arq);
-                                            register_bytes_readed += variable_field_size;
+                                            register_bytes_readed++;
                                         }
-                                        else if(tag_campo == header.tag_campo5)
+                                        else
                                         {
-                                            fread(&cargo_servidor, (variable_field_size - 1), 1, arq);
-                                            register_bytes_readed += variable_field_size;
+                                            fseek(arq, -1, SEEK_CUR);
+                                            fread(&var_field_size, sizeof(int), 1, arq);
+                                            register_bytes_readed += sizeof(int);
+                                            fread(&tag_campo, sizeof(char), 1, arq);
+                                            register_bytes_readed += sizeof(char);
+                                            if(tag_campo == header.tag_campo4)
+                                            {
+                                                fread(&nome_servidor, (var_field_size - 1) , 1, arq);
+                                                register_bytes_readed += var_field_size;
+                                            }
+                                            else if(tag_campo == header.tag_campo5)
+                                            {
+
+                                                fread(&cargo_servidor, (var_field_size - 1), 1, arq);
+                                                register_bytes_readed += var_field_size;
+                                            }
                                         }
                                     }
-                                    if(strcmp(cargo_servidor, cargo) == 0) //  Se o valor do campo for igual ao valor a ser buscado e nao foi removido.
+                                    if(strcmp(cargo_servidor, cargo) == 0)
                                     {
                                         i = ptr_list;
                                         while(i > -1 && reg_size < list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
@@ -2133,36 +2137,18 @@ void remove_by_cargo(const char *file_name, const char *cargo)
                                         list[(i + 1)].byte_offset = current_register;
                                         list[(i + 1)].reg_size = reg_size;
                                         ptr_list++; // Atualiza o ponteiro da lista.
-                                        fseek(arq, current_register, SEEK_SET); // Volta para o comeco do registro
+                                        fseek(arq, current_register, SEEK_SET);
                                         fwrite(&removido_mark, sizeof(char), 1, arq); // Marca como removido.
                                         fseek(arq, 12, SEEK_CUR); // Pula o campo do tamanho do registro e do encadeamento da lista
-                                        if(strlen(cargo_servidor) > 0 && strlen(nome_servidor) > 0)
-                                        {
-                                            register_bytes_readed = register_bytes_readed - (40 + strlen(nome_servidor) + strlen(cargo_servidor)); // Retira o tamanho dos campos recuperados
-                                        }
-                                        else
-                                        {
-                                            register_bytes_readed = register_bytes_readed - (34 + strlen(nome_servidor) + strlen(cargo_servidor)); // Retira o tamanho dos campos recuperados
-                                        }
-                                        while(register_bytes_readed < reg_size) // Coloca lixo nos campos do registro.
+                                        register_bytes_readed = reg_size - 8;
+                                        while(register_bytes_readed > 0)
                                         {
                                             fwrite(&bloat, sizeof(char), 1, arq);
-                                            register_bytes_readed++;
+                                            register_bytes_readed--;
                                         }
-                                    }
-                                    else // Se o campo nao for igual o buscado, pula o tamanho do registro.
-                                    {
-                                        fseek(arq, (reg_size - register_bytes_readed), SEEK_CUR);
                                     }
                                     total_bytes_readed += reg_size;
                                     register_bytes_readed = 0;
-                                    variable_field_size = 0;
-                                }
-                                else if(removido_token == '*') // Se este registro estiver removido, pula ele
-                                {
-                                    fread(&reg_size, sizeof(int), 1, arq);
-                                    total_bytes_readed += sizeof(int) + reg_size;
-                                    fseek(arq, reg_size, SEEK_CUR);
                                 }
                             }
                             total_bytes_readed = 0;
