@@ -33,7 +33,7 @@ void write_file_header(const char *file_name, FILE_HEADER *header); // Funcao qu
 void init_file_header(FILE_HEADER *header, char *desc); // Funcao que inicializa a estrutura de dados FILE_HEADER
 void print_file_header(FILE_HEADER header); // Funcao utilidade que mostra na tela todos os campos do registro de cabecalho
 void init_file_list(FILE_LIST *l, int list_size); // Funcao utilizada para inicializar a lista de registros removidos
-int binary_search(FILE_LIST *l, int list_size, int size); // Funcao utilizada para buscar na lista de registros removidos, seguindo a abordagem best fit
+int binary_search(FILE_LIST *l, int list_size); // Funcao utilizada para buscar na lista de registros removidos, seguindo a abordagem best fit
 
 
 
@@ -1634,6 +1634,12 @@ void remove_by_salario(const char *file_name, double salario)
                                             fwrite(&bloat, sizeof(char), 1, arq);
                                             register_bytes_readed--;
                                         }
+                                        // register_bytes_readed -= 12; // Retira o tamanho do campo idServidor e do salarioServidor, para preencher diretamente com lixo
+                                        // while(register_bytes_readed < reg_size) // Coloca lixo nos campos do registro.
+                                        // {
+                                        //     fwrite(&bloat, sizeof(char), 1, arq);
+                                        //     register_bytes_readed++;
+                                        // }
                                     }
                                     else // Se o campo nao for igual o buscado, pula o tamanho do registro.
                                     {
@@ -2188,109 +2194,6 @@ void remove_by_cargo(const char *file_name, const char *cargo)
     }
 }
 
-void insert_bin(const char *file_name, int id, double salario, const char *telefone, const char *nome, const char *cargo)
-{
-    FILE_HEADER header;
-    FILE_LIST list[LIST_TOTAL_SIZE];
-    FILE *arq = NULL;
-    int reg_size = 34, cargo_servidor_size = 0, nome_servidor_size = 0, disk_pages = 0, ptr_list = -1;
-    char nome_servidor[500], cargo_servidor[200];
-    double salario_servidor = 0.0, qt_disk_pages = 0.0;
-    long int encadeamento_lista = -1, file_size = 0;
-    if(file_name != NULL)
-    {
-        if(access(file_name, F_OK) == 0)
-        {
-            arq = fopen(file_name, "r+b");
-            if(arq != NULL)
-            {
-                fread(&header.status, sizeof(header.status), 1, arq);
-                if(header.status == '1')
-                {
-                    if(strlen(nome) > 0)
-                    {
-                        reg_size += 2 + strlen(nome);
-                    }
-                    if(strlen(cargo) > 0)
-                    {
-                        reg_size += 2 + strlen(cargo);
-                    }
-                    init_file_list(list, LIST_TOTAL_SIZE);
-                    fread(&header.topo_lista, sizeof(header.topo_lista), 1, arq);
-                    fread(&header.tag_campo1, sizeof(header.tag_campo1), 1, arq);
-                    fread(&header.desc_campo1, sizeof(header.desc_campo1), 1, arq);
-                    fread(&header.tag_campo2, sizeof(header.tag_campo2),1, arq);
-                    fread(&header.desc_campo2, sizeof(header.desc_campo2), 1, arq);
-                    fread(&header.tag_campo3, sizeof(header.tag_campo3),1, arq);
-                    fread(&header.desc_campo3, sizeof(header.desc_campo3), 1, arq);
-                    fread(&header.tag_campo4, sizeof(header.tag_campo4),1, arq);
-                    fread(&header.desc_campo4, sizeof(header.desc_campo4), 1, arq);
-                    fread(&header.tag_campo5, sizeof(header.tag_campo5), 1, arq);
-                    fread(&header.desc_campo5, sizeof(header.desc_campo5), 1, arq);
-                    fseek(arq, 0, SEEK_SET);
-                    header.status = '0';
-                    fwrite(&header.status, sizeof(header.status), 1, arq);
-                    disk_pages++;
-                    if(header.topo_lista != -1)
-                    {
-                        list[++ptr_list].byte_offset = header.topo_lista; // Recupera o primeiro elemento da lista de registros removidos.
-                        fseek(arq, list[ptr_list].byte_offset + 1, SEEK_SET); // Vai ate o primeiro elemento da lista de registros removidos.
-                        fread(&(list[ptr_list].reg_size), sizeof(int), 1, arq); // Recupera o tamanho do registro
-                        fread(&(list[++ptr_list].byte_offset), sizeof(long int), 1, arq); // Recupera o endereco do segundo no da lista
-
-                        while(list[ptr_list].byte_offset != -1) // Recupera todos os elementos da lista
-                        {
-                            fseek(arq, list[ptr_list].byte_offset + 1, SEEK_SET); // Recupera o proximo endereco onde esta o proximo elemento.
-                            fread(&(list[ptr_list].reg_size), sizeof(int), 1, arq);
-                            fread(&(list[++ptr_list].byte_offset), sizeof(long int), 1, arq);
-                        }
-                        fseek(arq, CLUSTER_SIZE, SEEK_SET); // Volta ao comeco do arquivo
-                    }
-                    else
-                    {
-                        fseek(arq, 0, SEEK_END); // Volta ao comeco do arquivo
-                        file_size = ftell(arq);
-                        qt_disk_pages = file_size / CLUSTER_SIZE;
-                        qt_disk_pages -= file_size;
-                        if(qt_disk_pages > 0)
-                        {
-
-                        }
-                        else
-                        {
-                            
-                        }
-                    }
-
-
-                    fseek(arq, 0, SEEK_SET);
-                    header.status = '1';
-                    fwrite(&header.status, sizeof(header.status), 1, arq);
-                    fwrite(&(list[0].byte_offset), sizeof(long int), 1, arq); // Escreve no cabecalho o primeiro no da lista
-                    // printf("DISK PAGES: %d\n", disk_pages);
-
-                }
-                else
-                {
-                    printf("Falha no processamento do arquivo\n");
-                }
-            }
-            else
-            {
-                printf("Falha no processamento do arquivo.\n");
-            }
-        }
-        else
-        {
-            printf("Falha no processamento do arquivo.\n");
-        }
-    }
-    else
-    {
-        printf("Falha no processamento do arquivo.\n");
-    }
-}
-
 void init_file_list(FILE_LIST *l, int list_size)
 {
     if(l != NULL)
@@ -2303,28 +2206,10 @@ void init_file_list(FILE_LIST *l, int list_size)
     }
 }
 
-int binary_search(FILE_LIST *l, int list_size, int size)
+int binary_search(FILE_LIST *l, int list_size)
 {
-    int mid = -1, beg = 0, end = 0, p_size = 0;
     if(l != NULL)
     {
-        beg = 0;
-        end = list_size;
-        mid = (beg + end) / 2;
-        p_size = end - beg;
-        while(p_size > 1 && l[mid].reg_size != size)
-        {
-            if(size < l[mid].reg_size)
-            {
-                end = mid;
-            }
-            else
-            {
-                beg = mid;
-            }
-            mid = (beg + end) / 2;
-            p_size = end - beg;
-        }
+
     }
-    return mid;
 }
