@@ -35,7 +35,7 @@ void init_file_header(FILE_HEADER *header, char *desc); // Funcao que inicializa
 void print_file_header(FILE_HEADER header); // Funcao utilidade que mostra na tela todos os campos do registro de cabecalho
 void init_file_list(FILE_LIST *l, int list_size); // Funcao utilizada para inicializar a lista de registros removidos
 int binary_search(FILE_LIST *l, int list_size); // Funcao utilizada para buscar na lista de registros removidos, seguindo a abordagem best fit
-void insert_full_disk_page(const char *file_name, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo); // Funcao utilizada para inserir o registro em uma pagina de disco
+void insert_full_disk_page(FILE *file, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo); // Funcao utilizada para inserir o registro em uma pagina de disco
 
 
 
@@ -2257,12 +2257,12 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
                         fseek(arq, CLUSTER_SIZE, SEEK_SET); // Volta ao comeco do arquivo
                         for(int i = 0; i < ptr_list; i++) // Busca na lista o registro seguindo a abordagem best-fit
                         {
-                            diff_result = l[i].reg_size - new_reg_size;
+                            diff_result = list[i].reg_size - new_reg_size;
                             if(diff_result >= 0) // Se o registro a ser inserido cabe no espaco do registro removido.
                             {
                                 if(min != -1)
                                 {
-                                    if(diff_result < (l[min].reg_size - new_reg_size))
+                                    if(diff_result < (list[min].reg_size - new_reg_size))
                                     {
                                         min = i;
                                     }
@@ -2385,7 +2385,7 @@ void insert_full_disk_page(FILE *file, int id, double salario, const char *telef
         fseek(file, 0, SEEK_END); // Vai ate o fim do arquivo
         // Faz a insercao do registro novo.
         fwrite(&removido_token, sizeof(char), 1, file);
-        fwrite(&new_reg_size, sizeof(int),1 file);
+        fwrite(&new_reg_size, sizeof(int), 1, file);
         fwrite(&encadeamento_lista, sizeof(long int), 1, file);
         fwrite(&id, sizeof(int), 1, file);
         fwrite(&salario, sizeof(double), 1, file);
