@@ -13,6 +13,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
+#include <math.h>
 
 // Registro de cabecalho
 typedef struct file_header_t
@@ -2199,10 +2200,10 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
     FILE_HEADER header;
     FILE_LIST list[LIST_TOTAL_SIZE];
     FILE *arq = NULL;
-    char nome_servidor[500], cargo_servidor[200], telefone_servidor[15], removido_token = '-',  bloat = '@';
+    char nome_servidor[500], cargo_servidor[200], telefone_servidor[15], removido_token = '-',  byte = '-', bloat = '@';
     int  reg_size = 0, disk_pages = 0, ptr_list = -1;
-    long int encadeamento_lista = -1, file_size = 0;
-    double salario_servidor = 0.0, qt_disk_pages = 0.0;
+    long int encadeamento_lista = -1, file_ptr = -1, file_size = 0.0;
+    double salario_servidor = 0.0, qt_disk_pages = 0.0, total_disk_pages = 0.0;
     if(file_name != NULL)
     {
         if(access(file_name, F_OK) == 0)
@@ -2250,12 +2251,39 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
                             fread(&(list[ptr_list].reg_size), sizeof(int), 1, arq);
                             fread(&(list[++ptr_list].byte_offset), sizeof(long int), 1, arq);
                         }
+                        fseek(arq, CLUSTER_SIZE, SEEK_SET); // Volta ao comeco do arquivo
                     }
                     else
                     {
+                        fseek(arq, 0, SEEK_END);
+                        file_size = ftell(arq);
+                        qt_disk_pages = file_size / 32000.0;
+                        modf(qt_disk_pages, &total_disk_pages);
+                        fseek(arq, (disk_pages * CLUSTER_SIZE), SEEK_SET); // Volta ao comeco do arquivo
+                        printf("%lf\n", total_disk_pages);
+                        qt_disk_pages -= total_disk_pages;
+                        if(qt_disk_pages > 0) // Se ha espaco na pagina de disco.
+                        {
+                            while(1)
+                            {
+                                fread(&byte, sizeof(char), 1, arq);
+                                if(feof(arq) != 0)
+                                {
+                                    break;
+                                }
+                                else
+                                {
+                                    file_ptr = ftell(arq);
+                                    fread(&reg_size, sizeof(int), 1, arq);
+                                    fseek(arq, reg_size, SEEK_CUR);
+                                }
+                            }
+                        }
+                        else
+                        {
 
+                        }
                     }
-                    fseek(arq, CLUSTER_SIZE, SEEK_SET); // Volta ao comeco do arquivo
                 }
                 else
                 {
