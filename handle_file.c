@@ -35,6 +35,7 @@ void init_file_header(FILE_HEADER *header, char *desc); // Funcao que inicializa
 void print_file_header(FILE_HEADER header); // Funcao utilidade que mostra na tela todos os campos do registro de cabecalho
 void init_file_list(FILE_LIST *l, int list_size); // Funcao utilizada para inicializar a lista de registros removidos
 int binary_search(FILE_LIST *l, int list_size); // Funcao utilizada para buscar na lista de registros removidos, seguindo a abordagem best fit
+void insert_full_disk_page(const char *file_name, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo); // Funcao utilizada para inserir o registro em uma pagina de disco
 
 
 
@@ -2200,10 +2201,10 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
     FILE_HEADER header;
     FILE_LIST list[LIST_TOTAL_SIZE];
     FILE *arq = NULL;
-    char nome_servidor[500], cargo_servidor[200], telefone_servidor[15], removido_token = '-',  byte = '-', bloat = '@';
-    int  reg_size = 0, disk_pages = 0, ptr_list = -1;
-    long int encadeamento_lista = -1, file_ptr = -1, file_size = 0.0;
-    double salario_servidor = 0.0, qt_disk_pages = 0.0, total_disk_pages = 0.0;
+    char removido_token = '-',  byte = '-', bloat = '@';
+    int  new_reg_size = 34, reg_size = 0, disk_pages = 0, ptr_list = -1, nome_servidor_size = 0, cargo_servidor_size = 0, min = -1, diff_result = 0;
+    long int encadeamento_lista = -1, file_ptr = -1, file_size = 0, last_disk_page_size = 0;
+    double qt_disk_pages = 0.0, total_disk_pages = 0.0;
     if(file_name != NULL)
     {
         if(access(file_name, F_OK) == 0)
@@ -2216,11 +2217,13 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
                 {
                     if(strlen(nome) > 0)
                     {
-                        reg_size += 2 + strlen(nome);
+                        nome_servidor_size = strlen(nome) + 2;
+                        new_reg_size += nome_servidor_size + 4;
                     }
                     if(strlen(cargo) > 0)
                     {
-                        reg_size += 2 + strlen(cargo);
+                        cargo_servidor_size = strlen(cargo) + 2;
+                        new_reg_size += cargo_servidor_size + 4;
                     }
                     init_file_list(list, LIST_TOTAL_SIZE);
                     fread(&header.topo_lista, sizeof(header.topo_lista), 1, arq);
@@ -2252,42 +2255,61 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
                             fread(&(list[++ptr_list].byte_offset), sizeof(long int), 1, arq);
                         }
                         fseek(arq, CLUSTER_SIZE, SEEK_SET); // Volta ao comeco do arquivo
-                    }
-                    else
-                    {
-                        fseek(arq, 0, SEEK_END);
-                        file_size = ftell(arq);
-                        qt_disk_pages = file_size / 32000.0;
-                        modf(qt_disk_pages, &total_disk_pages);
-                        fseek(arq, (disk_pages * CLUSTER_SIZE), SEEK_SET); // Volta ao comeco do arquivo
-                        printf("%lf\n", total_disk_pages);
-                        qt_disk_pages -= total_disk_pages;
-                        if(qt_disk_pages > 0) // Se ha espaco na pagina de disco.
+                        for(int i = 0; i < ptr_list; i++) // Busca na lista o registro seguindo a abordagem best-fit
                         {
-                            while(1)
+                            diff_result = l[i].reg_size - new_reg_size;
+                            if(diff_result >= 0) // Se o registro a ser inserido cabe no espaco do registro removido.
                             {
-                                fread(&byte, sizeof(char), 1, arq);
-                                if(feof(arq) != 0)
+                                if(min != -1)
                                 {
-                                    break;
+                                    if(diff_result < (l[min].reg_size - new_reg_size))
+                                    {
+                                        min = i;
+                                    }
                                 }
                                 else
                                 {
-                                    file_ptr = ftell(arq);
-                                    fread(&reg_size, sizeof(int), 1, arq);
-                                    fseek(arq, reg_size, SEEK_CUR);
+                                    min = i;
                                 }
                             }
                         }
+                        if(min != -1)
+                        {
+                            fseek(arq, list[min].byte_offset, SEEK_SET);
+                            fwrite(&removido_token, sizeof(char), 1, arq);
+                            fwrite(&new_reg_size, sizeof(int), 1, arq);
+                            fwrite(&encadeamento_lista, sizeof(long int), 1, arq);
+                            list[min].byte_offset = -1;
+                        }
                         else
                         {
-
+                            insert_full_disk_page(arq, id, salario, telefone, header.tag_campo4, nome, header.tag_campo5, cargo);
                         }
+                    }
+                    else
+                    {
+                        insert_full_disk_page(arq, id, salario, telefone, header.tag_campo4, nome, header.tag_campo5, cargo);
                     }
                 }
                 else
                 {
                     printf("Falha no processamento do arquivo.\n");
+                }
+                // Atualiza a lista
+                for(int j = 0; j < ptr_list; j++)
+                {
+                    // printf("BYTE_OFFSET: %ld\n", list[j].byte_offset);
+                    // printf("REG_SIZE: %d\n", list[j].reg_size);
+                    if(list[j].byte_offset != -1)
+                    {
+                        fseek(arq, list[j].byte_offset + 5, SEEK_SET);
+                        fwrite(&list[(j + 1)].byte_offset, sizeof(long int), 1, arq);
+                    }
+                    else if(list[(j + 1)].byte_offset == -1)
+                    {
+                        fseek(arq, list[j].byte_offset + 5, SEEK_SET);
+                        fwrite(&list[(j + 2)].byte_offset, sizeof(long int), 1, arq);
+                    }
                 }
                 fseek(arq, 0, SEEK_SET);
                 header.status = '1';
@@ -2305,6 +2327,85 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
         {
             printf("Falha no processamento do arquivo.\n");
         }
+    }
+}
+
+void insert_full_disk_page(FILE *file, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo)
+{
+    char removido_token = '-', byte = '-', bloat = '@';
+    int new_reg_size = 34, reg_size = 0, nome_servidor_size = 0, cargo_servidor_size = 0;
+    long int encadeamento_lista = -1, file_ptr = -1, file_size = 0, last_disk_page_size = 0;
+    double qt_disk_pages = 0.0, total_disk_pages = 0.0;
+
+    if(file != NULL)
+    {
+        if(strlen(nome) > 0)
+        {
+            nome_servidor_size = strlen(nome) + 2;
+            new_reg_size += nome_servidor_size + 4;
+        }
+        if(strlen(cargo) > 0)
+        {
+            cargo_servidor_size = strlen(cargo) + 2;
+            new_reg_size += cargo_servidor_size + 4;
+        }
+
+        fseek(file, 0, SEEK_END);
+        file_size = ftell(file);
+        qt_disk_pages = file_size / 32000.0;
+        modf(qt_disk_pages, &total_disk_pages);
+        fseek(file, (total_disk_pages * CLUSTER_SIZE), SEEK_SET); // Volta ao comeco do arquivo
+        last_disk_page_size = file_size - ftell(file); // Calcula o tamanho da ultima pagina de disco
+        // Eh necessario verificar se o registro cabe na ultima pagina de disco
+        if((last_disk_page_size - reg_size) < 0) // Se o registro nao cabe na ultima pagina de disco
+        {
+            while(1) // Loop para ir ate o ultimo registro
+            {
+                fread(&byte, sizeof(char), 1, file);
+                if(feof(file) != 0)
+                {
+                    break;
+                }
+                else
+                {
+                    file_ptr = ftell(file); // Armazena a posicao do ultimo registro
+                    fread(&reg_size, sizeof(int), 1, file); // reg_size tem o tamanho do ultimo registro
+                    fseek(file, reg_size, SEEK_CUR);
+                }
+            }
+            while(last_disk_page_size < CLUSTER_SIZE)
+            {
+                fwrite(&bloat, sizeof(char), 1, file); // Escreve lixo no fim do registro
+                last_disk_page_size++;
+                reg_size++; // Atualiza o tamanho do ultimo registro da ultima pagina de disco.
+            }
+            fseek(file, file_ptr, SEEK_SET); // Vai ate o ultimo registro da ultima pagina de disco;
+            fwrite(&reg_size, sizeof(int), 1, file); // Atualiza o tamanho do ultimo registro da ultima pagina de disco.
+        }
+        fseek(file, 0, SEEK_END); // Vai ate o fim do arquivo
+        // Faz a insercao do registro novo.
+        fwrite(&removido_token, sizeof(char), 1, file);
+        fwrite(&new_reg_size, sizeof(int),1 file);
+        fwrite(&encadeamento_lista, sizeof(long int), 1, file);
+        fwrite(&id, sizeof(int), 1, file);
+        fwrite(&salario, sizeof(double), 1, file);
+        fwrite(&telefone, (sizeof(telefone) - 1), 1, file);
+        if(nome_servidor_size > 0)
+        {
+            fwrite(&nome_servidor_size, sizeof(int), 1, file);
+            fwrite(&tag_campo4, sizeof(char), 1, file);
+            fwrite(&nome, (nome_servidor_size - 1), 1, file);
+        }
+        if(cargo_servidor_size > 0)
+        {
+            fwrite(&cargo_servidor_size, sizeof(int), 1, file);
+            fwrite(&tag_campo5, sizeof(char), 1, file);
+            fwrite(&cargo, (cargo_servidor_size - 1), 1, file);
+        }
+    }
+    else
+    {
+        printf("Falha no processamento do arquivo.\n");
     }
 }
 
