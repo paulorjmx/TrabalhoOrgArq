@@ -2202,7 +2202,7 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
     FILE_LIST list[LIST_TOTAL_SIZE];
     FILE *arq = NULL;
     char nome_servidor[200], cargo_servidor[500], telefone_servidor[15], removido_token = '-',  byte = '-', bloat = '@';
-    int  new_reg_size = 34, reg_size = 0, disk_pages = 0, ptr_list = -1, nome_servidor_size = 0, cargo_servidor_size = 0, min = -1, diff_result = 0;
+    int  new_reg_size = 34, reg_size = 0, disk_pages = 0, ptr_list = -1, nome_servidor_size = 0, cargo_servidor_size = 0, min = -1, diff_result = 0, j = 0;
     long int encadeamento_lista = -1, file_ptr = -1, file_size = 0, last_disk_page_size = 0;
     double qt_disk_pages = 0.0, total_disk_pages = 0.0;
     if(file_name != NULL)
@@ -2257,7 +2257,6 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
                             fread(&(list[ptr_list].reg_size), sizeof(int), 1, arq);
                             fread(&(list[++ptr_list].byte_offset), sizeof(long int), 1, arq);
                         }
-                        fseek(arq, CLUSTER_SIZE, SEEK_SET); // Volta ao comeco do arquivo
                         for(int i = 0; i < ptr_list; i++) // Busca na lista o registro seguindo a abordagem best-fit
                         {
                             diff_result = list[i].reg_size - new_reg_size;
@@ -2278,9 +2277,10 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
                         }
                         if(min != -1)
                         {
+                            printf("ACHOU: %d\n", list[min].reg_size);
                             fseek(arq, list[min].byte_offset, SEEK_SET);
                             fwrite(&removido_token, sizeof(char), 1, arq);
-                            fwrite(&new_reg_size, sizeof(int), 1, arq);
+                            fseek(arq, sizeof(int), SEEK_CUR); // Nao escreve o tamanho do novo registro
                             fwrite(&encadeamento_lista, sizeof(long int), 1, arq);
                             fwrite(&id, sizeof(int), 1, arq);
                             fwrite(&salario, sizeof(double), 1, arq);
@@ -2306,35 +2306,38 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
                     }
                     else
                     {
-                        printf("LISTA VAZIA\n");
+                        // Lista vazia
                         insert_full_disk_page(arq, id, salario, telefone, header.tag_campo4, nome, header.tag_campo5, cargo);
                     }
+                    // Atualiza a lista
+                    for(int k = 0; k < ptr_list; k++)
+                    {
+                        if(list[k].byte_offset != -1)
+                        {
+                            printf("BYTE_OFFSET: %ld\n", list[k].byte_offset);
+                            printf("REG_SIZE: %d\n", list[k].reg_size);
+                            fseek(arq, list[k].byte_offset + 5, SEEK_SET);
+                            if(list[(k + 1)].byte_offset == -1)
+                            {
+                                fwrite(&list[(k + 2)].byte_offset, sizeof(long int), 1, arq);
+                            }
+                            else
+                            {
+                                fwrite(&list[(k + 1)].byte_offset, sizeof(long int), 1, arq);
+                            }
+                        }
+                    }
+                    fseek(arq, 0, SEEK_SET);
+                    header.status = '1';
+                    fwrite(&header.status, sizeof(header.status), 1, arq);
+                    for(j = 0; (j < ptr_list) && (list[j].byte_offset == -1); j++) {  }
+                    fwrite(&(list[j].byte_offset), sizeof(long int), 1, arq); // Escreve no cabecalho o primeiro no da lista
+                    // printf("DISK PAGES: %d\n", disk_pages);
                 }
                 else
                 {
                     printf("Falha no processamento do arquivo.\n");
                 }
-                // Atualiza a lista
-                for(int j = 0; j < ptr_list; j++)
-                {
-                    // printf("BYTE_OFFSET: %ld\n", list[j].byte_offset);
-                    // printf("REG_SIZE: %d\n", list[j].reg_size);
-                    if(list[j].byte_offset != -1)
-                    {
-                        fseek(arq, list[j].byte_offset + 5, SEEK_SET);
-                        fwrite(&list[(j + 1)].byte_offset, sizeof(long int), 1, arq);
-                    }
-                    else if(list[(j + 1)].byte_offset == -1)
-                    {
-                        fseek(arq, list[j].byte_offset + 5, SEEK_SET);
-                        fwrite(&list[(j + 2)].byte_offset, sizeof(long int), 1, arq);
-                    }
-                }
-                fseek(arq, 0, SEEK_SET);
-                header.status = '1';
-                fwrite(&header.status, sizeof(header.status), 1, arq);
-                fwrite(&(list[0].byte_offset), sizeof(long int), 1, arq); // Escreve no cabecalho o primeiro no da lista
-                // printf("DISK PAGES: %d\n", disk_pages);
             }
             else
             {
@@ -2370,16 +2373,16 @@ void insert_full_disk_page(FILE *file, int id, double salario, const char *telef
             cargo_servidor_size = strlen(cargo) + 2;
             new_reg_size += cargo_servidor_size + 4;
         }
-        printf("%s\n", telefone_servidor);
         strcpy(telefone_servidor, telefone);
         fseek(file, 0, SEEK_END);
         file_size = ftell(file);
         qt_disk_pages = file_size / 32000.0;
+        printf("QT_DISKS: %lf\n", qt_disk_pages);
         modf(qt_disk_pages, &total_disk_pages);
-        fseek(file, (total_disk_pages * CLUSTER_SIZE), SEEK_SET); // Volta ao comeco do arquivo
+        fseek(file, (total_disk_pages * CLUSTER_SIZE), SEEK_SET);
         last_disk_page_size = file_size - ftell(file); // Calcula o tamanho da ultima pagina de disco
         // Eh necessario verificar se o registro cabe na ultima pagina de disco
-        if((last_disk_page_size - reg_size) < 0) // Se o registro nao cabe na ultima pagina de disco
+        if((last_disk_page_size + new_reg_size) >= CLUSTER_SIZE) // Se o registro nao cabe na ultima pagina de disco
         {
             while(1) // Loop para ir ate o ultimo registro
             {
