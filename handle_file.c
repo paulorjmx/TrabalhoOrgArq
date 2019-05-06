@@ -2201,7 +2201,7 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
     FILE_HEADER header;
     FILE_LIST list[LIST_TOTAL_SIZE];
     FILE *arq = NULL;
-    char removido_token = '-',  byte = '-', bloat = '@';
+    char nome_servidor[200], cargo_servidor[500], telefone_servidor[15], removido_token = '-',  byte = '-', bloat = '@';
     int  new_reg_size = 34, reg_size = 0, disk_pages = 0, ptr_list = -1, nome_servidor_size = 0, cargo_servidor_size = 0, min = -1, diff_result = 0;
     long int encadeamento_lista = -1, file_ptr = -1, file_size = 0, last_disk_page_size = 0;
     double qt_disk_pages = 0.0, total_disk_pages = 0.0;
@@ -2217,14 +2217,17 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
                 {
                     if(strlen(nome) > 0)
                     {
+                        strcpy(nome_servidor, nome);
                         nome_servidor_size = strlen(nome) + 2;
                         new_reg_size += nome_servidor_size + 4;
                     }
                     if(strlen(cargo) > 0)
                     {
+                        strcpy(cargo_servidor, cargo);
                         cargo_servidor_size = strlen(cargo) + 2;
                         new_reg_size += cargo_servidor_size + 4;
                     }
+                    strcpy(telefone_servidor, telefone);
                     init_file_list(list, LIST_TOTAL_SIZE);
                     fread(&header.topo_lista, sizeof(header.topo_lista), 1, arq);
                     fread(&header.tag_campo1, sizeof(header.tag_campo1), 1, arq);
@@ -2279,6 +2282,21 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
                             fwrite(&removido_token, sizeof(char), 1, arq);
                             fwrite(&new_reg_size, sizeof(int), 1, arq);
                             fwrite(&encadeamento_lista, sizeof(long int), 1, arq);
+                            fwrite(&id, sizeof(int), 1, arq);
+                            fwrite(&salario, sizeof(double), 1, arq);
+                            fwrite(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, arq);
+                            if(nome_servidor_size > 0)
+                            {
+                                fwrite(&nome_servidor_size, sizeof(int), 1, arq);
+                                fwrite(&header.tag_campo4, sizeof(char), 1, arq);
+                                fwrite(&nome_servidor, (nome_servidor_size - 1), 1, arq);
+                            }
+                            if(cargo_servidor_size > 0)
+                            {
+                                fwrite(&cargo_servidor_size, sizeof(int), 1, arq);
+                                fwrite(&header.tag_campo5, sizeof(char), 1, arq);
+                                fwrite(&cargo_servidor, (cargo_servidor_size - 1), 1, arq);
+                            }
                             list[min].byte_offset = -1;
                         }
                         else
@@ -2288,6 +2306,7 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
                     }
                     else
                     {
+                        printf("LISTA VAZIA\n");
                         insert_full_disk_page(arq, id, salario, telefone, header.tag_campo4, nome, header.tag_campo5, cargo);
                     }
                 }
@@ -2332,7 +2351,7 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
 
 void insert_full_disk_page(FILE *file, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo)
 {
-    char removido_token = '-', byte = '-', bloat = '@';
+    char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], removido_token = '-', byte = '-', bloat = '@';
     int new_reg_size = 34, reg_size = 0, nome_servidor_size = 0, cargo_servidor_size = 0;
     long int encadeamento_lista = -1, file_ptr = -1, file_size = 0, last_disk_page_size = 0;
     double qt_disk_pages = 0.0, total_disk_pages = 0.0;
@@ -2341,15 +2360,18 @@ void insert_full_disk_page(FILE *file, int id, double salario, const char *telef
     {
         if(strlen(nome) > 0)
         {
+            strcpy(nome_servidor, nome);
             nome_servidor_size = strlen(nome) + 2;
             new_reg_size += nome_servidor_size + 4;
         }
         if(strlen(cargo) > 0)
         {
+            strcpy(cargo_servidor, cargo);
             cargo_servidor_size = strlen(cargo) + 2;
             new_reg_size += cargo_servidor_size + 4;
         }
-
+        printf("%s\n", telefone_servidor);
+        strcpy(telefone_servidor, telefone);
         fseek(file, 0, SEEK_END);
         file_size = ftell(file);
         qt_disk_pages = file_size / 32000.0;
@@ -2389,18 +2411,18 @@ void insert_full_disk_page(FILE *file, int id, double salario, const char *telef
         fwrite(&encadeamento_lista, sizeof(long int), 1, file);
         fwrite(&id, sizeof(int), 1, file);
         fwrite(&salario, sizeof(double), 1, file);
-        fwrite(&telefone, (sizeof(telefone) - 1), 1, file);
+        fwrite(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, file);
         if(nome_servidor_size > 0)
         {
             fwrite(&nome_servidor_size, sizeof(int), 1, file);
             fwrite(&tag_campo4, sizeof(char), 1, file);
-            fwrite(&nome, (nome_servidor_size - 1), 1, file);
+            fwrite(&nome_servidor, (nome_servidor_size - 1), 1, file);
         }
         if(cargo_servidor_size > 0)
         {
             fwrite(&cargo_servidor_size, sizeof(int), 1, file);
             fwrite(&tag_campo5, sizeof(char), 1, file);
-            fwrite(&cargo, (cargo_servidor_size - 1), 1, file);
+            fwrite(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
         }
     }
     else
