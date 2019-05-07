@@ -2277,7 +2277,6 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
                         }
                         if(min != -1)
                         {
-                            printf("ACHOU: %d\n", list[min].reg_size);
                             fseek(arq, list[min].byte_offset, SEEK_SET);
                             fwrite(&removido_token, sizeof(char), 1, arq);
                             fseek(arq, sizeof(int), SEEK_CUR); // Nao escreve o tamanho do novo registro
@@ -2299,7 +2298,7 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
                             }
                             list[min].byte_offset = -1;
                         }
-                        else
+                        else // Se nao achou na lista um registro que caiba o registro a ser inserido
                         {
                             insert_full_disk_page(arq, id, salario, telefone, header.tag_campo4, nome, header.tag_campo5, cargo);
                         }
@@ -2314,8 +2313,8 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
                     {
                         if(list[k].byte_offset != -1)
                         {
-                            printf("BYTE_OFFSET: %ld\n", list[k].byte_offset);
-                            printf("REG_SIZE: %d\n", list[k].reg_size);
+                            // printf("BYTE_OFFSET: %ld\n", list[k].byte_offset);
+                            // printf("REG_SIZE: %d\n", list[k].reg_size);
                             fseek(arq, list[k].byte_offset + 5, SEEK_SET);
                             if(list[(k + 1)].byte_offset == -1)
                             {
