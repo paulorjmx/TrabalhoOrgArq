@@ -2533,6 +2533,7 @@ void edit_by_id(const char *file_name, int id, const char *campo)
                                             }
                                         }
                                         // Edita o registro.
+                                        printf("ACHOU!\n");
                                         r = edit_register(arq, campo, current_register, header.tag_campo4, header.tag_campo5);
                                         flag_found = 0x00;
                                         break;
@@ -2630,7 +2631,7 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
         {
             register_bytes_readed += 26; // Adiciona o tamanho total dos campos de tamanho fixo a fim de recuperar os registros de tamanho variavel
             fseek(file, 26, SEEK_CUR); // Pula os campos de tamanho fixo para recuperar os campos de tamanho variavel
-            scanf("%200[^\n\r]", var_value);
+            scanf(" %200[^\n\r]", var_value);
             while(register_bytes_readed < reg_size) // Loop utilizado para ler o resto do registro
             {
                 fread(&trash, sizeof(char), 1, file);
@@ -2661,7 +2662,7 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
             }
             if(nome_servidor_size > 0)
             {
-                fseek(file, comeco_registro + 39, SEEK_CUR); // Pula para a posicao onde fica o comeco do campo nome
+                fseek(file, comeco_registro + 39, SEEK_SET); // Pula para a posicao onde fica o comeco do campo nome
                 if(strcmp(var_value, "NULO") == 0)
                 {
                     if(cargo_servidor_size > 0) // Se o cargo servidor nao for nulo, desloca ele e escreve no arquivo
@@ -2708,6 +2709,8 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
                 }
                 else if(strlen(nome_servidor) > strlen(var_value)) // Se o nome a ser inserido eh menor do que o existente
                 {
+                    printf("NOME: %s\n", nome_servidor);
+                    printf("NEW NOME: %s\n", var_value);
                     nome_servidor_size = strlen(var_value) + 2; // Atualiza o tamanho do nome
                     fwrite(&nome_servidor_size, sizeof(int), 1, file);
                     fwrite(&tag_campo4, sizeof(char), 1, file);
@@ -2733,7 +2736,7 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
         {
             register_bytes_readed += 26; // Adiciona o tamanho total dos campos de tamanho fixo a fim de recuperar os registros de tamanho variavel
             fseek(file, 26, SEEK_CUR); // Pula os campos de tamanho fixo para recuperar os campos de tamanho variavel
-            scanf("%500[^\n\r]", var_value);
+            scanf(" %500[^\n\r]", var_value);
             while(register_bytes_readed < reg_size) // Loop utilizado para ler o resto do registro
             {
                 fread(&trash, sizeof(char), 1, file);
@@ -2764,7 +2767,7 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
             }
             if(cargo_servidor_size > 0)
             {
-                fseek(file, comeco_registro + 43 + nome_servidor_size, SEEK_CUR); // Pula para a posicao onde fica o comeco do campo cargo
+                fseek(file, comeco_registro + 43 + nome_servidor_size, SEEK_SET); // Pula para a posicao onde fica o comeco do campo cargo
                 if(strcmp(var_value, "NULO") == 0)
                 {
                     for(int i = 0; i < (cargo_servidor_size + 4); i++)
