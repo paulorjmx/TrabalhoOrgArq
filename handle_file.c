@@ -2439,6 +2439,7 @@ void edit_by_id(const char *file_name, int id, const char *campo)
     FILE_HEADER header;
     FILE *arq = NULL;
     // removido_token eh utilizado para ler o primeiro byte do registro
+    // O ponteiro para void eh necessario para passar parametros para a funcao edit register
     void *valor_campo = NULL;
     char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@', flag_found = 0x01, flag_removed = 0x01;
     char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
@@ -2525,38 +2526,6 @@ void edit_by_id(const char *file_name, int id, const char *campo)
                                     register_bytes_readed += sizeof(int);
                                     if(id_servidor == id) //  Se o valor do campo for igual ao valor a ser buscado e nao foi removido.
                                     {
-                                        fread(&salario_servidor, sizeof(double), 1, arq);
-                                        register_bytes_readed += sizeof(double);
-                                        fread(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, arq);
-                                        register_bytes_readed += sizeof(telefone_servidor) - 1;
-                                        while(register_bytes_readed < reg_size) // Loop utilizado para ler o resto do registro
-                                        {
-                                            fread(&trash, sizeof(char), 1, arq);
-                                            if(trash == '@')
-                                            {
-                                                register_bytes_readed++;
-                                            }
-                                            else
-                                            {
-                                                fseek(arq, -1, SEEK_CUR);
-                                                fread(&var_field_size, sizeof(int), 1, arq);
-                                                register_bytes_readed += sizeof(int);
-                                                fread(&tag_campo, sizeof(char), 1, arq);
-                                                register_bytes_readed += sizeof(char);
-                                                if(tag_campo == header.tag_campo4)
-                                                {
-                                                    nome_servidor_size = var_field_size;
-                                                    fread(&nome_servidor, (nome_servidor_size - 1) , 1, arq);
-                                                    register_bytes_readed += nome_servidor_size;
-                                                }
-                                                else if(tag_campo == header.tag_campo5)
-                                                {
-                                                    cargo_servidor_size = var_field_size;
-                                                    fread(&cargo_servidor, (cargo_servidor_size - 1), 1, arq);
-                                                    register_bytes_readed += cargo_servidor_size;
-                                                }
-                                            }
-                                        }
                                         // Edita o registro.
                                         fseek(arq, 0, SEEK_SET);
                                         header.status = '1';
@@ -2615,11 +2584,465 @@ void edit_by_id(const char *file_name, int id, const char *campo)
     }
 }
 
+void edit_by_salario(const char *file_name, double salario, const char *campo)
+{
+    FILE_HEADER header;
+    FILE *arq = NULL;
+    // removido_token eh utilizado para ler o primeiro byte do registro
+    // O ponteiro para void eh necessario para passar parametros para a funcao edit register
+    void *valor_campo = NULL;
+    char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@';
+    char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
+    int disk_pages = 0, ptr_list = -1, var_field_size = 0, new_id = 0;
+    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
+    long int encadeamento_lista = -1, current_register = 0;
+    double salario_servidor = 0.0, new_salario_servidor = 0.0;
+    if(strcmp(campo, "idServidor") == 0)
+    {
+        scanf("%d", &new_id);
+        valor_campo = &new_id;
+    }
+    else if(strcmp(campo, "salarioServidor") == 0)
+    {
+        scanf("%lf", &new_salario_servidor);
+        valor_campo = &new_salario_servidor;
+    }
+    else if(strcmp(campo, "telefoneServidor") == 0)
+    {
+        scanf("%s", new_telefone_servidor);
+        valor_campo = new_telefone_servidor;
+    }
+    else if(strcmp(campo, "nomeServidor") == 0)
+    {
+        scanf(" %200[^\n\r]s", new_nome_servidor);
+        valor_campo = new_nome_servidor;
+    }
+    else if(strcmp(campo, "cargoServidor") == 0)
+    {
+        scanf(" %500[^\n\r]s", new_cargo_servidor);
+        valor_campo = new_cargo_servidor;
+    }
+    if(file_name != NULL)
+    {
+        if(access(file_name, F_OK) == 0)
+        {
+            arq = fopen(file_name, "r+b");
+            if(arq != NULL)
+            {
+                fread(&header.status, sizeof(header.status), 1, arq);
+                if(header.status == '1')
+                {
+                    fread(&header.topo_lista, sizeof(header.topo_lista), 1, arq);
+                    fread(&header.tag_campo1, sizeof(header.tag_campo1), 1, arq);
+                    fread(&header.desc_campo1, sizeof(header.desc_campo1), 1, arq);
+                    fread(&header.tag_campo2, sizeof(header.tag_campo2),1, arq);
+                    fread(&header.desc_campo2, sizeof(header.desc_campo2), 1, arq);
+                    fread(&header.tag_campo3, sizeof(header.tag_campo3),1, arq);
+                    fread(&header.desc_campo3, sizeof(header.desc_campo3), 1, arq);
+                    fread(&header.tag_campo4, sizeof(header.tag_campo4),1, arq);
+                    fread(&header.desc_campo4, sizeof(header.desc_campo4), 1, arq);
+                    fread(&header.tag_campo5, sizeof(header.tag_campo5), 1, arq);
+                    fread(&header.desc_campo5, sizeof(header.desc_campo5), 1, arq);
+                    fseek(arq, 0, SEEK_SET);
+                    header.status = '0';
+                    fwrite(&header.status, sizeof(header.status), 1, arq);
+                    disk_pages++;
+                    fseek(arq, CLUSTER_SIZE, SEEK_SET); // Volta ao comeco do arquivo
+
+                    while(1)
+                    {
+                        if(feof(arq) != 0)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            while(total_bytes_readed < CLUSTER_SIZE)
+                            {
+                                current_register = ftell(arq);
+                                fread(&removido_token, sizeof(char), 1, arq);
+                                total_bytes_readed += sizeof(char);
+                                if(feof(arq) != 0)
+                                {
+                                    break;
+                                }
+                                else if(removido_token == '-')
+                                {
+                                    fread(&reg_size, sizeof(int), 1, arq);
+                                    total_bytes_readed += sizeof(int);
+                                    fread(&encadeamento_lista, sizeof(long int), 1, arq);
+                                    register_bytes_readed += sizeof(long int);
+                                    fread(&id_servidor, sizeof(int), 1, arq);
+                                    register_bytes_readed += sizeof(int);
+                                    fread(&salario_servidor, sizeof(double), 1, arq);
+                                    register_bytes_readed += sizeof(double);
+                                    if(salario_servidor == salario)
+                                    {
+                                        // Edita o registro.
+                                        fseek(arq, 0, SEEK_SET);
+                                        header.status = '1';
+                                        fwrite(&header.status, sizeof(header.status), 1, arq);
+                                        fclose(arq);
+                                        // Eh necessario fechar o arquivo para que o edit_register possa alterar o registro.
+                                        edit_register(file_name, campo, valor_campo, current_register, header.tag_campo4, header.tag_campo5);
+                                        arq = fopen(file_name, "r+b");
+                                        header.status = '0';
+                                        fwrite(&header.status, sizeof(header.status), 1, arq);
+                                    }
+                                    fseek(arq, current_register + reg_size + 1, SEEK_SET);
+                                }
+                                else
+                                {
+                                    fread(&reg_size, sizeof(int), 1, arq);
+                                    fseek(arq, reg_size, SEEK_CUR);
+                                }
+                                register_bytes_readed = 0;
+                                cargo_servidor_size = 0;
+                                nome_servidor_size = 0;
+                            }
+                            total_bytes_readed = 0;
+                            disk_pages++;
+                        }
+                    }
+                    fseek(arq, 0, SEEK_SET);
+                    header.status = '1';
+                    fwrite(&header.status, sizeof(header.status), 1, arq);
+                }
+                else
+                {
+                    printf("Falha no processamento do arquivo.\n");
+                }
+                fclose(arq);
+            }
+            else
+            {
+                printf("Falha no processamento do arquivo.\n");
+            }
+        }
+        else
+        {
+            printf("Falha no processamento do arquivo.\n");
+        }
+    }
+}
+
+void edit_by_telefone(const char *file_name, const char *telefone, const char *campo)
+{
+    FILE_HEADER header;
+    FILE *arq = NULL;
+    // removido_token eh utilizado para ler o primeiro byte do registro
+    // O ponteiro para void eh necessario para passar parametros para a funcao edit register
+    void *valor_campo = NULL;
+    char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@';
+    char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
+    int disk_pages = 0, ptr_list = -1, var_field_size = 0, new_id = 0;
+    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
+    long int encadeamento_lista = -1, current_register = 0;
+    double salario_servidor = 0.0, new_salario_servidor = 0.0;
+    if(strcmp(campo, "idServidor") == 0)
+    {
+        scanf("%d", &new_id);
+        valor_campo = &new_id;
+    }
+    else if(strcmp(campo, "salarioServidor") == 0)
+    {
+        scanf("%lf", &new_salario_servidor);
+        valor_campo = &new_salario_servidor;
+    }
+    else if(strcmp(campo, "telefoneServidor") == 0)
+    {
+        scanf("%s", new_telefone_servidor);
+        valor_campo = new_telefone_servidor;
+    }
+    else if(strcmp(campo, "nomeServidor") == 0)
+    {
+        scanf(" %200[^\n\r]s", new_nome_servidor);
+        valor_campo = new_nome_servidor;
+    }
+    else if(strcmp(campo, "cargoServidor") == 0)
+    {
+        scanf(" %500[^\n\r]s", new_cargo_servidor);
+        valor_campo = new_cargo_servidor;
+    }
+    if(file_name != NULL)
+    {
+        if(access(file_name, F_OK) == 0)
+        {
+            arq = fopen(file_name, "r+b");
+            if(arq != NULL)
+            {
+                fread(&header.status, sizeof(header.status), 1, arq);
+                if(header.status == '1')
+                {
+                    fread(&header.topo_lista, sizeof(header.topo_lista), 1, arq);
+                    fread(&header.tag_campo1, sizeof(header.tag_campo1), 1, arq);
+                    fread(&header.desc_campo1, sizeof(header.desc_campo1), 1, arq);
+                    fread(&header.tag_campo2, sizeof(header.tag_campo2),1, arq);
+                    fread(&header.desc_campo2, sizeof(header.desc_campo2), 1, arq);
+                    fread(&header.tag_campo3, sizeof(header.tag_campo3),1, arq);
+                    fread(&header.desc_campo3, sizeof(header.desc_campo3), 1, arq);
+                    fread(&header.tag_campo4, sizeof(header.tag_campo4),1, arq);
+                    fread(&header.desc_campo4, sizeof(header.desc_campo4), 1, arq);
+                    fread(&header.tag_campo5, sizeof(header.tag_campo5), 1, arq);
+                    fread(&header.desc_campo5, sizeof(header.desc_campo5), 1, arq);
+                    fseek(arq, 0, SEEK_SET);
+                    header.status = '0';
+                    fwrite(&header.status, sizeof(header.status), 1, arq);
+                    disk_pages++;
+                    fseek(arq, CLUSTER_SIZE, SEEK_SET); // Volta ao comeco do arquivo
+
+                    while(1)
+                    {
+                        if(feof(arq) != 0)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            while(total_bytes_readed < CLUSTER_SIZE)
+                            {
+                                current_register = ftell(arq);
+                                fread(&removido_token, sizeof(char), 1, arq);
+                                total_bytes_readed += sizeof(char);
+                                if(feof(arq) != 0)
+                                {
+                                    break;
+                                }
+                                else if(removido_token == '-')
+                                {
+                                    fread(&reg_size, sizeof(int), 1, arq);
+                                    total_bytes_readed += sizeof(int);
+                                    fread(&encadeamento_lista, sizeof(long int), 1, arq);
+                                    register_bytes_readed += sizeof(long int);
+                                    fread(&id_servidor, sizeof(int), 1, arq);
+                                    register_bytes_readed += sizeof(int);
+                                    fread(&salario_servidor, sizeof(double), 1, arq);
+                                    register_bytes_readed += sizeof(double);
+                                    fread(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, arq);
+                                    register_bytes_readed += sizeof(telefone_servidor) - 1;
+                                    if(strcmp(telefone_servidor, telefone) == 0) //  Se o valor do campo for igual ao valor a ser buscado e nao foi removido.
+                                    {
+                                        // Edita o registro.
+                                        fseek(arq, 0, SEEK_SET);
+                                        header.status = '1';
+                                        fwrite(&header.status, sizeof(header.status), 1, arq);
+                                        fclose(arq);
+                                        // Eh necessario fechar o arquivo para que o edit_register possa alterar o registro.
+                                        edit_register(file_name, campo, valor_campo, current_register, header.tag_campo4, header.tag_campo5);
+                                        arq = fopen(file_name, "r+b");
+                                        header.status = '0';
+                                        fwrite(&header.status, sizeof(header.status), 1, arq);
+                                    }
+                                    fseek(arq, current_register + reg_size + 1, SEEK_SET);
+                                }
+                                else
+                                {
+                                    fread(&reg_size, sizeof(int), 1, arq);
+                                    fseek(arq, reg_size, SEEK_CUR);
+                                }
+                                register_bytes_readed = 0;
+                                cargo_servidor_size = 0;
+                                nome_servidor_size = 0;
+                            }
+                            total_bytes_readed = 0;
+                            disk_pages++;
+                        }
+                    }
+                    fseek(arq, 0, SEEK_SET);
+                    header.status = '1';
+                    fwrite(&header.status, sizeof(header.status), 1, arq);
+                }
+                else
+                {
+                    printf("Falha no processamento do arquivo.\n");
+                }
+                fclose(arq);
+            }
+            else
+            {
+                printf("Falha no processamento do arquivo.\n");
+            }
+        }
+        else
+        {
+            printf("Falha no processamento do arquivo.\n");
+        }
+    }
+}
+
+void edit_by_nome(const char *file_name, const char *nome, const char *campo)
+{
+    FILE_HEADER header;
+    FILE *arq = NULL;
+    // removido_token eh utilizado para ler o primeiro byte do registro
+    // O ponteiro para void eh necessario para passar parametros para a funcao edit register
+    void *valor_campo = NULL;
+    char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@';
+    char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
+    int disk_pages = 0, ptr_list = -1, var_field_size = 0, new_id = 0;
+    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
+    long int encadeamento_lista = -1, current_register = 0;
+    double salario_servidor = 0.0, new_salario_servidor = 0.0;
+    if(strcmp(campo, "idServidor") == 0)
+    {
+        scanf("%d", &new_id);
+        valor_campo = &new_id;
+    }
+    else if(strcmp(campo, "salarioServidor") == 0)
+    {
+        scanf("%lf", &new_salario_servidor);
+        valor_campo = &new_salario_servidor;
+    }
+    else if(strcmp(campo, "telefoneServidor") == 0)
+    {
+        scanf("%s", new_telefone_servidor);
+        valor_campo = new_telefone_servidor;
+    }
+    else if(strcmp(campo, "nomeServidor") == 0)
+    {
+        scanf(" %200[^\n\r]s", new_nome_servidor);
+        valor_campo = new_nome_servidor;
+    }
+    else if(strcmp(campo, "cargoServidor") == 0)
+    {
+        scanf(" %500[^\n\r]s", new_cargo_servidor);
+        valor_campo = new_cargo_servidor;
+    }
+    if(file_name != NULL)
+    {
+        if(access(file_name, F_OK) == 0)
+        {
+            arq = fopen(file_name, "r+b");
+            if(arq != NULL)
+            {
+                fread(&header.status, sizeof(header.status), 1, arq);
+                if(header.status == '1')
+                {
+                    fread(&header.topo_lista, sizeof(header.topo_lista), 1, arq);
+                    fread(&header.tag_campo1, sizeof(header.tag_campo1), 1, arq);
+                    fread(&header.desc_campo1, sizeof(header.desc_campo1), 1, arq);
+                    fread(&header.tag_campo2, sizeof(header.tag_campo2),1, arq);
+                    fread(&header.desc_campo2, sizeof(header.desc_campo2), 1, arq);
+                    fread(&header.tag_campo3, sizeof(header.tag_campo3),1, arq);
+                    fread(&header.desc_campo3, sizeof(header.desc_campo3), 1, arq);
+                    fread(&header.tag_campo4, sizeof(header.tag_campo4),1, arq);
+                    fread(&header.desc_campo4, sizeof(header.desc_campo4), 1, arq);
+                    fread(&header.tag_campo5, sizeof(header.tag_campo5), 1, arq);
+                    fread(&header.desc_campo5, sizeof(header.desc_campo5), 1, arq);
+                    fseek(arq, 0, SEEK_SET);
+                    header.status = '0';
+                    fwrite(&header.status, sizeof(header.status), 1, arq);
+                    disk_pages++;
+                    fseek(arq, CLUSTER_SIZE, SEEK_SET); // Volta ao comeco do arquivo
+
+                    while(1)
+                    {
+                        if(feof(arq) != 0)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            while(total_bytes_readed < CLUSTER_SIZE)
+                            {
+                                current_register = ftell(arq);
+                                fread(&removido_token, sizeof(char), 1, arq);
+                                total_bytes_readed += sizeof(char);
+                                if(feof(arq) != 0)
+                                {
+                                    break;
+                                }
+                                else if(removido_token == '-')
+                                {
+                                    fread(&reg_size, sizeof(int), 1, arq);
+                                    total_bytes_readed += sizeof(int);
+                                    fread(&encadeamento_lista, sizeof(long int), 1, arq);
+                                    register_bytes_readed += sizeof(long int);
+                                    fread(&id_servidor, sizeof(int), 1, arq);
+                                    register_bytes_readed += sizeof(int);
+                                    fread(&salario_servidor, sizeof(double), 1, arq);
+                                    register_bytes_readed += sizeof(double);
+                                    fread(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, arq);
+                                    register_bytes_readed += sizeof(telefone_servidor) - 1;
+                                    while(register_bytes_readed < reg_size) // Loop utilizado para ler o resto do registro
+                                    {
+                                        fread(&trash, sizeof(char), 1, arq);
+                                        if(trash == '@')
+                                        {
+                                            register_bytes_readed++;
+                                        }
+                                        else
+                                        {
+                                            fseek(arq, -1, SEEK_CUR);
+                                            fread(&var_field_size, sizeof(int), 1, arq);
+                                            register_bytes_readed += sizeof(int);
+                                            fread(&tag_campo, sizeof(char), 1, arq);
+                                            register_bytes_readed += sizeof(char);
+                                            if(tag_campo == header.tag_campo4)
+                                            {
+                                                nome_servidor_size = var_field_size;
+                                                fread(&nome_servidor, (nome_servidor_size - 1) , 1, arq);
+                                                register_bytes_readed += nome_servidor_size;
+                                            }
+                                            else if(tag_campo == header.tag_campo5)
+                                            {
+                                                cargo_servidor_size = var_field_size;
+                                                fread(&cargo_servidor, (cargo_servidor_size - 1), 1, arq);
+                                                register_bytes_readed += cargo_servidor_size;
+                                            }
+                                        }
+                                    }
+                                    if(strcmp(nome_servidor, nome) == 0) //  Se o valor do campo for igual ao valor a ser buscado e nao foi removido.
+                                    {
+                                        // Edita o registro.
+                                        fseek(arq, 0, SEEK_SET);
+                                        header.status = '1';
+                                        fwrite(&header.status, sizeof(header.status), 1, arq);
+                                        fclose(arq);
+                                        // Eh necessario fechar o arquivo para que o edit_register possa alterar o registro.
+                                        edit_register(file_name, campo, valor_campo, current_register, header.tag_campo4, header.tag_campo5);
+                                        arq = fopen(file_name, "r+b");
+                                        header.status = '0';
+                                        fwrite(&header.status, sizeof(header.status), 1, arq);
+                                    }
+                                    fseek(arq, current_register + reg_size + 1, SEEK_SET);
+                                }
+                                register_bytes_readed = 0;
+                                cargo_servidor_size = 0;
+                                nome_servidor_size = 0;
+                            }
+                            total_bytes_readed = 0;
+                            disk_pages++;
+                        }
+                    }
+                    fseek(arq, 0, SEEK_SET);
+                    header.status = '1';
+                    fwrite(&header.status, sizeof(header.status), 1, arq);
+                }
+                else
+                {
+                    printf("Falha no processamento do arquivo.\n");
+                }
+                fclose(arq);
+            }
+            else
+            {
+                printf("Falha no processamento do arquivo.\n");
+            }
+        }
+        else
+        {
+            printf("Falha no processamento do arquivo.\n");
+        }
+    }
+}
+
 void edit_by_cargo(const char *file_name, const char *cargo, const char *campo)
 {
     FILE_HEADER header;
     FILE *arq = NULL;
     // removido_token eh utilizado para ler o primeiro byte do registro
+    // O ponteiro para void eh necessario para passar parametros para a funcao edit register
     void *valor_campo = NULL;
     char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@';
     char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
@@ -2743,6 +3166,7 @@ void edit_by_cargo(const char *file_name, const char *cargo, const char *campo)
                                         header.status = '1';
                                         fwrite(&header.status, sizeof(header.status), 1, arq);
                                         fclose(arq);
+                                        // Eh necessario fechar o arquivo para que o edit_register possa alterar o registro.
                                         edit_register(file_name, campo, valor_campo, current_register, header.tag_campo4, header.tag_campo5);
                                         arq = fopen(file_name, "r+b");
                                         header.status = '0';
@@ -2750,9 +3174,6 @@ void edit_by_cargo(const char *file_name, const char *cargo, const char *campo)
                                         fseek(arq, current_register + reg_size + 1, SEEK_SET);
                                     }
                                 }
-                                // else if(removido_token == '*')
-                                // {
-                                // }
                                 register_bytes_readed = 0;
                                 cargo_servidor_size = 0;
                                 nome_servidor_size = 0;
