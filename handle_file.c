@@ -2590,7 +2590,7 @@ void edit_by_id(const char *file_name, int id, const char *campo)
 
 int edit_register(FILE *file, const char *campo, long int comeco_registro, char tag_campo4, char tag_campo5)
 {
-    int r = 0, id = 0, reg_size = 0, nome_servidor_size = 0, cargo_servidor_size = 0, register_bytes_readed = 8, var_field_size = 0, reg_empty_space = 0;
+    int r = 0, id = 0, reg_size = 0, nome_servidor_size = 0, cargo_servidor_size = 0, register_bytes_readed = 0, var_field_size = 0, reg_empty_space = 0;
     char telefone_servidor[15], cargo_servidor[500], nome_servidor[200], var_value[500], bloat = '@', removido_token = '-', byte = '@', tag_campo = '#';
     long int encadeamento_lista = -1;
     double salario = 0.0;
@@ -2603,6 +2603,7 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
         fread(&removido_token, sizeof(char), 1, file);
         fread(&reg_size, sizeof(int), 1, file);
         fread(&encadeamento_lista, sizeof(long int), 1, file);
+        register_bytes_readed += sizeof(long int);
         if(strcmp(campo, "idServidor") == 0)
         {
             scanf("%d", &id);
@@ -2651,13 +2652,13 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
                     {
                         nome_servidor_size = var_field_size;
                         fread(&nome_servidor, (nome_servidor_size - 1) , 1, file);
-                        register_bytes_readed += nome_servidor_size;
+                        register_bytes_readed += (nome_servidor_size - 1);
                     }
                     else if(tag_campo == tag_campo5)
                     {
                         cargo_servidor_size = var_field_size;
                         fread(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
-                        register_bytes_readed += cargo_servidor_size;
+                        register_bytes_readed += (cargo_servidor_size - 1);
                     }
                 }
             }
