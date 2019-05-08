@@ -2536,7 +2536,6 @@ void edit_by_id(const char *file_name, int id, const char *campo)
                                             }
                                         }
                                         // Edita o registro.
-                                        printf("ACHOU!\n");
                                         fseek(arq, 0, SEEK_SET);
                                         header.status = '1';
                                         fwrite(&header.status, sizeof(header.status), 1, arq);
@@ -2564,6 +2563,7 @@ void edit_by_id(const char *file_name, int id, const char *campo)
                                         break;
                                     }
                                 }
+                                register_bytes_readed = 0;
                                 cargo_servidor_size = 0;
                                 nome_servidor_size = 0;
                             }
