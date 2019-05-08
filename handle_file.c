@@ -2571,6 +2571,7 @@ void edit_by_id(const char *file_name, int id, const char *campo)
                 fclose(arq);
                 if(r < 0)
                 {
+                    printf("\nREMOCAO SEGUIDA DE INSERCAO\n");
                     remove_by_id(file_name, id);
                     insert_bin(file_name, id, salario_servidor, telefone_servidor, nome_servidor, cargo_servidor);
                 }
@@ -2589,8 +2590,8 @@ void edit_by_id(const char *file_name, int id, const char *campo)
 
 int edit_register(FILE *file, const char *campo, long int comeco_registro, char tag_campo4, char tag_campo5)
 {
-    int r = 0, id = 0, reg_size = 0, nome_servidor_size = 0, cargo_servidor_size = 0, register_bytes_readed = 8, var_field_size = 0, diff = 0;
-    char telefone_servidor[15], cargo_servidor[500], nome_servidor[200], var_value[500], bloat = '@', removido_token = '-', trash = '@', tag_campo = '#';
+    int r = 0, id = 0, reg_size = 0, nome_servidor_size = 0, cargo_servidor_size = 0, register_bytes_readed = 8, var_field_size = 0, reg_empty_space = 0;
+    char telefone_servidor[15], cargo_servidor[500], nome_servidor[200], var_value[500], bloat = '@', removido_token = '-', byte = '@', tag_campo = '#';
     long int encadeamento_lista = -1;
     double salario = 0.0;
     memset(&telefone_servidor, 0x00, sizeof(telefone_servidor));
@@ -2627,17 +2628,17 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
             }
             fwrite(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, file);
         }
-        else if(strcmp(campo, "nomeServidor") == 0)
+        else // Caso seja algum campo de tamanho variavel
         {
             register_bytes_readed += 26; // Adiciona o tamanho total dos campos de tamanho fixo a fim de recuperar os registros de tamanho variavel
             fseek(file, 26, SEEK_CUR); // Pula os campos de tamanho fixo para recuperar os campos de tamanho variavel
-            scanf(" %200[^\n\r]", var_value);
             while(register_bytes_readed < reg_size) // Loop utilizado para ler o resto do registro
             {
-                fread(&trash, sizeof(char), 1, file);
-                if(trash == '@')
+                fread(&byte, sizeof(char), 1, file);
+                if(byte == '@')
                 {
                     register_bytes_readed++;
+                    reg_empty_space++;
                 }
                 else
                 {
@@ -2660,40 +2661,28 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
                     }
                 }
             }
-            if(nome_servidor_size > 0)
+            if(strcmp(campo, "nomeServidor") == 0)
             {
+                scanf(" %200[^\n\r]", var_value);
                 fseek(file, comeco_registro + 39, SEEK_SET); // Pula para a posicao onde fica o comeco do campo nome
-                if(strcmp(var_value, "NULO") == 0)
+                if(nome_servidor_size > 0) // Se o registro contem um campo nomeServidor
                 {
-                    if(cargo_servidor_size > 0) // Se o cargo servidor nao for nulo, desloca ele e escreve no arquivo
+                    if(strcmp(var_value, "NULO") == 0)
                     {
-                        fwrite(&cargo_servidor_size, sizeof(int), 1, file);
-                        fwrite(&tag_campo5, sizeof(char), 1, file);
-                        fwrite(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
-                        for(int i = 0; i < (cargo_servidor_size + 4); i++)
+                        if(cargo_servidor_size > 0) // Se o cargo servidor nao for nulo, desloca ele e escreve no arquivo
                         {
-                            fwrite(&bloat, sizeof(char), 1, file);
+                            fwrite(&cargo_servidor_size, sizeof(int), 1, file);
+                            fwrite(&tag_campo5, sizeof(char), 1, file);
+                            fwrite(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
                         }
+                        reg_empty_space = (nome_servidor_size + 4); // Atualiza o espaco vazio dentro do registro
                     }
-                    else
+                    else if(strlen(nome_servidor) < strlen(var_value))
                     {
-                        // Se o cargo for nulo, coloca lixo no lugar do nome
-                        for(int i = 0; i < (nome_servidor_size + 4); i++)
-                        {
-                            fwrite(&bloat, sizeof(char), 1, file);
-                        }
-                    }
-                }
-                else if(strlen(nome_servidor) < strlen(var_value))
-                {
-                    if(cargo_servidor_size > 0) // Se houver o campo cargo no registro, remove o registro e insere novamente
-                    {
-                        r = -1;
-                    }
-                    else
-                    {
-                        diff = reg_size - strlen(nome_servidor);
-                        if(diff + strlen(var_value) > reg_size)
+                        printf("REG EMPTY SPAC: %d\n", reg_empty_space);
+                        reg_empty_space = reg_empty_space + strlen(nome_servidor) - strlen(var_value); // Calcula o espaco vazio restante, se ocorrer a edicao
+                        printf("EMPTY SPAC: %d\n", reg_empty_space);
+                        if(reg_empty_space < 0) // Se nao ha espaco no registro para inserir
                         {
                             r = -1;
                         }
@@ -2704,96 +2693,142 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
                             fwrite(&nome_servidor_size, sizeof(int), 1, file);
                             fwrite(&tag_campo4, sizeof(char), 1, file);
                             fwrite(&var_value, (nome_servidor_size - 1), 1, file);
+                            if(cargo_servidor_size > 0) // Se o registro tem um campo cargoServidor
+                            {
+                                // Atualiza a posicao, no registro, onde o campo cargoServidor ficara, escrevendo-o novamente
+                                fwrite(&cargo_servidor_size, sizeof(int), 1, file);
+                                fwrite(&tag_campo5, sizeof(char), 1, file);
+                                fwrite(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
+                            }
+                        }
+                    }
+                    else if(strlen(nome_servidor) > strlen(var_value)) // Se o nome a ser inserido eh menor do que o existente
+                    {
+                        printf("NOME: %s\n", nome_servidor);
+                        printf("NEW NOME: %s\n", var_value);
+                        nome_servidor_size = strlen(var_value) + 2; // Atualiza o tamanho do nome
+                        fwrite(&nome_servidor_size, sizeof(int), 1, file);
+                        fwrite(&tag_campo4, sizeof(char), 1, file);
+                        fwrite(&var_value, (nome_servidor_size - 1), 1, file);
+                        if(cargo_servidor_size > 0)
+                        {
+                            fwrite(&cargo_servidor_size, sizeof(int), 1, file);
+                            fwrite(&tag_campo5, sizeof(char), 1, file);
+                            fwrite(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
+                        }
+                        reg_empty_space = strlen(nome_servidor) - strlen(var_value); // Atualiza o espaco vazio dentro do registro
+                    }
+                    else // Se o tamanho do novo nomeServidor a ser inserido eh igual ao antigo
+                    {
+                        fseek(file, 5, SEEK_CUR);
+                        fwrite(&var_value, (nome_servidor_size - 1), 1, file);
+                    }
+                    // Se sobrou algum espaco dentro do registro, preenche com lixo
+                    while(reg_empty_space > 0)
+                    {
+                        fwrite(&bloat, sizeof(char), 1, file);
+                        reg_empty_space--;
+                    }
+                }
+                else // Caso o registro nao tenha um campo nomeServidor
+                {
+                    if(strcmp(var_value, "NULO") != 0)
+                    {
+                        reg_empty_space -= (strlen(var_value) + 6); // Calcula o espaco vazio restante do registro, se ocorrer a edicao
+                        if(reg_empty_space >= 0) // Se o registro possui espaco para o nomeServidor
+                        {
+                            nome_servidor_size = strlen(var_value) + 2;
+                            fwrite(&nome_servidor_size, sizeof(int), 1, file);
+                            fwrite(&tag_campo4, sizeof(char), 1, file);
+                            fwrite(&var_value, (nome_servidor_size - 1), 1, file);
+                            if(cargo_servidor_size > 0) // Se o registro tem um campo cargoServidor
+                            {
+                                fwrite(&cargo_servidor_size, sizeof(int), 1, file);
+                                fwrite(&tag_campo5, sizeof(char), 1, file);
+                                fwrite(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
+                            }
+                        }
+                        else
+                        {
+                            r = -1;
                         }
                     }
                 }
-                else if(strlen(nome_servidor) > strlen(var_value)) // Se o nome a ser inserido eh menor do que o existente
-                {
-                    printf("NOME: %s\n", nome_servidor);
-                    printf("NEW NOME: %s\n", var_value);
-                    nome_servidor_size = strlen(var_value) + 2; // Atualiza o tamanho do nome
-                    fwrite(&nome_servidor_size, sizeof(int), 1, file);
-                    fwrite(&tag_campo4, sizeof(char), 1, file);
-                    fwrite(&var_value, (nome_servidor_size - 1), 1, file);
-                    fwrite(&cargo_servidor_size, sizeof(int), 1, file);
-                    fwrite(&tag_campo5, sizeof(char), 1, file);
-                    fwrite(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
-                    for(int i = 0; i < (strlen(nome_servidor) - strlen(var_value)); i++)
-                    {
-                        // Preenche a diferenca de tamanhos com lixo
-                        fwrite(&bloat, sizeof(char), 1, file);
-
-                    }
-                }
-                else
-                {
-                    fseek(file, 5, SEEK_CUR);
-                    fwrite(&var_value, (nome_servidor_size - 1), 1, file);
-                }
             }
-        }
-        else if(strcmp(campo, "cargo_servidor") == 0)
-        {
-            register_bytes_readed += 26; // Adiciona o tamanho total dos campos de tamanho fixo a fim de recuperar os registros de tamanho variavel
-            fseek(file, 26, SEEK_CUR); // Pula os campos de tamanho fixo para recuperar os campos de tamanho variavel
-            scanf(" %500[^\n\r]", var_value);
-            while(register_bytes_readed < reg_size) // Loop utilizado para ler o resto do registro
+            else if(strcmp(campo, "cargo_servidor") == 0)
             {
-                fread(&trash, sizeof(char), 1, file);
-                if(trash == '@')
+                scanf(" %500[^\n\r]", var_value);
+                if(nome_servidor_size > 0) // Se o registro tem um campo nomeServidor
                 {
-                    register_bytes_readed++;
+                    // Pula para a posicao onde fica o comeco do campo cargoServidor contabilizando o tamanho do campo nomeServidor
+                    fseek(file, comeco_registro + 43 + nome_servidor_size, SEEK_SET);
                 }
                 else
                 {
-                    fseek(file, -1, SEEK_CUR);
-                    fread(&var_field_size, sizeof(int), 1, file);
-                    register_bytes_readed += sizeof(int);
-                    fread(&tag_campo, sizeof(char), 1, file);
-                    register_bytes_readed += sizeof(char);
-                    if(tag_campo == tag_campo4)
-                    {
-                        nome_servidor_size = var_field_size;
-                        fread(&nome_servidor, (nome_servidor_size - 1) , 1, file);
-                        register_bytes_readed += nome_servidor_size;
-                    }
-                    else if(tag_campo == tag_campo5)
-                    {
-                        cargo_servidor_size = var_field_size;
-                        fread(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
-                        register_bytes_readed += cargo_servidor_size;
-                    }
+                    // Pula para a posicao onde fica o comeco do campo cargoServidor nao contabilizando o tamanho do campo nomeServidor
+                    fseek(file, comeco_registro + 39, SEEK_SET);
                 }
-            }
-            if(cargo_servidor_size > 0)
-            {
-                fseek(file, comeco_registro + 43 + nome_servidor_size, SEEK_SET); // Pula para a posicao onde fica o comeco do campo cargo
-                if(strcmp(var_value, "NULO") == 0)
+                if(cargo_servidor_size > 0) // Se o registro contem um campo cargoServidor
                 {
-                    for(int i = 0; i < (cargo_servidor_size + 4); i++)
+                    if(strcmp(var_value, "NULO") == 0)
+                    {
+                        reg_empty_space = (cargo_servidor_size + 4); // Atualiza o espaco vazio dentro do registro
+                    }
+                    else if(strlen(cargo_servidor) < strlen(var_value))
+                    {
+                        reg_empty_space -= (strlen(cargo_servidor) - strlen(var_value)); // Calcula o espaco vazio restante, se ocorrer a edicao
+                        if(reg_empty_space < 0) // Se nao ha espaco no registro para inserir
+                        {
+                            r = -1;
+                        }
+                        else // Se houver espaco no registro para inserir o novo cargoServidor
+                        {
+                            cargo_servidor_size = strlen(var_value) + 2; // Atualiza o tamanho do campo cargoServidor
+                            // Escreve o novo valor que o campo cargoServidor tera
+                            fwrite(&cargo_servidor_size, sizeof(int), 1, file);
+                            fwrite(&tag_campo5, sizeof(char), 1, file);
+                            fwrite(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
+                        }
+                    }
+                    else if(strlen(cargo_servidor) > strlen(var_value)) // Se o cargo a ser inserido eh menor do que o existente
+                    {
+                        printf("CARGO: %s\n", cargo_servidor);
+                        printf("NEW CARGO: %s\n", var_value);
+                        cargo_servidor_size = strlen(var_value) + 2; // Atualiza o tamanho do cargoServidor
+                        fwrite(&cargo_servidor_size, sizeof(int), 1, file);
+                        fwrite(&tag_campo5, sizeof(char), 1, file);
+                        fwrite(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
+                        reg_empty_space = strlen(cargo_servidor) - strlen(var_value); // Atualiza o espaco vazio dentro do registro
+                    }
+                    else // Se o tamanho do novo cargoServidor a ser inserido eh igual ao antigo
+                    {
+                        fseek(file, 5, SEEK_CUR);
+                        fwrite(&var_value, (cargo_servidor_size - 1), 1, file);
+                    }
+                    // Se sobrou algum espaco dentro do registro, preenche com lixo
+                    while(reg_empty_space > 0)
                     {
                         fwrite(&bloat, sizeof(char), 1, file);
+                        reg_empty_space--;
                     }
                 }
-                else if(strlen(cargo_servidor) < strlen(var_value))
+                else // Caso o registro nao tenha um campo cargoServidor
                 {
-                    r = -1;
-                }
-                else if(strlen(cargo_servidor) > strlen(var_value)) // Se o nome a ser inserido eh menor do que o existente
-                {
-                    cargo_servidor_size = strlen(var_value) + 2;
-                    fwrite(&cargo_servidor_size, sizeof(int), 1, file);
-                    fwrite(&tag_campo5, sizeof(char), 1, file);
-                    fwrite(&var_value, (cargo_servidor_size - 1), 1, file);
-                    for(int i = 0; i < (strlen(cargo_servidor) - strlen(var_value)); i++)
+                    if(strcmp(var_value, "NULO") != 0)
                     {
-                        fwrite(&bloat, sizeof(char), 1, file);
+                        reg_empty_space -= (strlen(var_value) + 6); // Calcula o espaco vazio restante do registro, se ocorrer a edicao
+                        if(reg_empty_space >= 0) // Se o registro possui espaco para o cargoServidor
+                        {
+                            cargo_servidor_size = strlen(var_value) + 2;
+                            fwrite(&cargo_servidor_size, sizeof(int), 1, file);
+                            fwrite(&tag_campo5, sizeof(char), 1, file);
+                            fwrite(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
+                        }
+                        else
+                        {
+                            r = -1;
+                        }
                     }
-                }
-                else
-                {
-                    fseek(file, 5, SEEK_CUR);
-                    fwrite(&var_value, (cargo_servidor_size - 1), 1, file);
                 }
             }
         }
