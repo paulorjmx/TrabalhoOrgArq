@@ -36,7 +36,7 @@ void print_file_header(FILE_HEADER header); // Funcao utilidade que mostra na te
 void init_file_list(FILE_LIST *l, int list_size); // Funcao utilizada para inicializar a lista de registros removidos
 int binary_search(FILE_LIST *l, int list_size); // Funcao utilizada para buscar na lista de registros removidos, seguindo a abordagem best fit
 void insert_full_disk_page(FILE *file, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo); // Funcao utilizada para inserir o registro em uma pagina de disco
-int edit_register(FILE *file, const char *campo, long int comeco_registro, char tag_campo4, char tag_campo5); // Funcao utilizada para atualizar um campo no registro que tem comeco em comeco_registro
+void edit_register(const char *file_name, const char *campo, long int comeco_registro, char tag_campo4, char tag_campo5); // Funcao utilizada para atualizar um campo no registro que tem comeco em comeco_registro
 
 
 
@@ -2443,7 +2443,7 @@ void edit_by_id(const char *file_name, int id, const char *campo)
     // flag_found e flag_removed sao utilizados para parar o loop
     char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@', flag_found = 0x01, flag_removed = 0x01;
     char telefone_servidor[15], nome_servidor[200], cargo_servidor[500];
-    int disk_pages = 0, ptr_list = -1, var_field_size = 0, r = 0;
+    int disk_pages = 0, ptr_list = -1, var_field_size = 0;
     int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
     long int encadeamento_lista = -1, current_register = 0;
     double salario_servidor = 0.0;
@@ -2504,6 +2504,9 @@ void edit_by_id(const char *file_name, int id, const char *campo)
                                         fread(&salario_servidor, sizeof(double), 1, arq);
                                         register_bytes_readed += sizeof(double);
                                         fread(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, arq);
+                                        register_bytes_readed += sizeof(telefone_servidor) - 1;
+                                        printf("REGITER READED: %d\n", register_bytes_readed);
+                                        printf("REGITER SIZE: %d\n", reg_size);
                                         while(register_bytes_readed < reg_size) // Loop utilizado para ler o resto do registro
                                         {
                                             fread(&trash, sizeof(char), 1, arq);
@@ -2534,7 +2537,15 @@ void edit_by_id(const char *file_name, int id, const char *campo)
                                         }
                                         // Edita o registro.
                                         printf("ACHOU!\n");
-                                        r = edit_register(arq, campo, current_register, header.tag_campo4, header.tag_campo5);
+                                        fseek(arq, 0, SEEK_SET);
+                                        header.status = '1';
+                                        fwrite(&header.status, sizeof(header.status), 1, arq);
+                                        fclose(arq);
+                                        edit_register(file_name, campo, current_register, header.tag_campo4, header.tag_campo5);
+                                        arq = fopen(file_name, "r+b");
+                                        header.status = '0';
+                                        fwrite(&header.status, sizeof(header.status), 1, arq);
+                                        fseek(arq, current_register + reg_size + 1, SEEK_SET);
                                         flag_found = 0x00;
                                         break;
                                     }
@@ -2569,12 +2580,6 @@ void edit_by_id(const char *file_name, int id, const char *campo)
                     printf("Falha no processamento do arquivo.\n");
                 }
                 fclose(arq);
-                if(r < 0)
-                {
-                    printf("\nREMOCAO SEGUIDA DE INSERCAO\n");
-                    remove_by_id(file_name, id);
-                    insert_bin(file_name, id, salario_servidor, telefone_servidor, nome_servidor, cargo_servidor);
-                }
             }
             else
             {
@@ -2588,8 +2593,9 @@ void edit_by_id(const char *file_name, int id, const char *campo)
     }
 }
 
-int edit_register(FILE *file, const char *campo, long int comeco_registro, char tag_campo4, char tag_campo5)
+void edit_register(const char *file_name, const char *campo, long int comeco_registro, char tag_campo4, char tag_campo5)
 {
+    FILE *file = NULL;
     int r = 0, id = 0, reg_size = 0, nome_servidor_size = 0, cargo_servidor_size = 0, register_bytes_readed = 0, var_field_size = 0, reg_empty_space = 0;
     char telefone_servidor[15], cargo_servidor[500], nome_servidor[200], var_value[500], bloat = '@', removido_token = '-', byte = '@', tag_campo = '#';
     long int encadeamento_lista = -1;
@@ -2597,6 +2603,7 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
     memset(&telefone_servidor, 0x00, sizeof(telefone_servidor));
     memset(&cargo_servidor, 0x00, sizeof(cargo_servidor));
     memset(&nome_servidor, 0x00, sizeof(nome_servidor));
+    file = fopen(file_name, "r+b");
     if(file != NULL)
     {
         fseek(file, comeco_registro, SEEK_SET);
@@ -2631,8 +2638,12 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
         }
         else // Caso seja algum campo de tamanho variavel
         {
-            register_bytes_readed += 26; // Adiciona o tamanho total dos campos de tamanho fixo a fim de recuperar os registros de tamanho variavel
-            fseek(file, 26, SEEK_CUR); // Pula os campos de tamanho fixo para recuperar os campos de tamanho variavel
+            fread(&id, sizeof(int), 1, file);
+            register_bytes_readed += sizeof(int);
+            fread(&salario, sizeof(double), 1, file);
+            register_bytes_readed += sizeof(double);
+            fread(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, file);
+            register_bytes_readed += sizeof(telefone_servidor) - 1;
             while(register_bytes_readed < reg_size) // Loop utilizado para ler o resto do registro
             {
                 fread(&byte, sizeof(char), 1, file);
@@ -2680,9 +2691,7 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
                     }
                     else if(strlen(nome_servidor) < strlen(var_value))
                     {
-                        printf("REG EMPTY SPAC: %d\n", reg_empty_space);
                         reg_empty_space = reg_empty_space + strlen(nome_servidor) - strlen(var_value); // Calcula o espaco vazio restante, se ocorrer a edicao
-                        printf("EMPTY SPAC: %d\n", reg_empty_space);
                         if(reg_empty_space < 0) // Se nao ha espaco no registro para inserir
                         {
                             r = -1;
@@ -2705,8 +2714,6 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
                     }
                     else if(strlen(nome_servidor) > strlen(var_value)) // Se o nome a ser inserido eh menor do que o existente
                     {
-                        printf("NOME: %s\n", nome_servidor);
-                        printf("NEW NOME: %s\n", var_value);
                         nome_servidor_size = strlen(var_value) + 2; // Atualiza o tamanho do nome
                         fwrite(&nome_servidor_size, sizeof(int), 1, file);
                         fwrite(&tag_campo4, sizeof(char), 1, file);
@@ -2756,7 +2763,7 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
                     }
                 }
             }
-            else if(strcmp(campo, "cargo_servidor") == 0)
+            else if(strcmp(campo, "cargoServidor") == 0)
             {
                 scanf(" %500[^\n\r]", var_value);
                 if(nome_servidor_size > 0) // Se o registro tem um campo nomeServidor
@@ -2777,10 +2784,10 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
                     }
                     else if(strlen(cargo_servidor) < strlen(var_value))
                     {
-                        reg_empty_space -= (strlen(cargo_servidor) - strlen(var_value)); // Calcula o espaco vazio restante, se ocorrer a edicao
+                        reg_empty_space = reg_empty_space + strlen(nome_servidor) - strlen(var_value); // Calcula o espaco vazio restante, se ocorrer a edicao
                         if(reg_empty_space < 0) // Se nao ha espaco no registro para inserir
                         {
-                            r = -1;
+                            r = -2;
                         }
                         else // Se houver espaco no registro para inserir o novo cargoServidor
                         {
@@ -2788,17 +2795,15 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
                             // Escreve o novo valor que o campo cargoServidor tera
                             fwrite(&cargo_servidor_size, sizeof(int), 1, file);
                             fwrite(&tag_campo5, sizeof(char), 1, file);
-                            fwrite(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
+                            fwrite(&var_value, (cargo_servidor_size - 1), 1, file);
                         }
                     }
                     else if(strlen(cargo_servidor) > strlen(var_value)) // Se o cargo a ser inserido eh menor do que o existente
                     {
-                        printf("CARGO: %s\n", cargo_servidor);
-                        printf("NEW CARGO: %s\n", var_value);
                         cargo_servidor_size = strlen(var_value) + 2; // Atualiza o tamanho do cargoServidor
                         fwrite(&cargo_servidor_size, sizeof(int), 1, file);
                         fwrite(&tag_campo5, sizeof(char), 1, file);
-                        fwrite(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
+                        fwrite(&var_value, (cargo_servidor_size - 1), 1, file);
                         reg_empty_space = strlen(cargo_servidor) - strlen(var_value); // Atualiza o espaco vazio dentro do registro
                     }
                     else // Se o tamanho do novo cargoServidor a ser inserido eh igual ao antigo
@@ -2823,18 +2828,30 @@ int edit_register(FILE *file, const char *campo, long int comeco_registro, char 
                             cargo_servidor_size = strlen(var_value) + 2;
                             fwrite(&cargo_servidor_size, sizeof(int), 1, file);
                             fwrite(&tag_campo5, sizeof(char), 1, file);
-                            fwrite(&cargo_servidor, (cargo_servidor_size - 1), 1, file);
+                            fwrite(&var_value, (cargo_servidor_size - 1), 1, file);
                         }
                         else
                         {
-                            r = -1;
+                            r = -2;
                         }
                     }
                 }
             }
         }
+        fclose(file);
+        if(r < 0)
+        {
+            remove_by_id(file_name, id);
+            if(r == -1)
+            {
+                insert_bin(file_name, id, salario, telefone_servidor, var_value, cargo_servidor);
+            }
+            else
+            {
+                insert_bin(file_name, id, salario, telefone_servidor, nome_servidor, var_value);
+            }
+        }
     }
-    return r;
 }
 
 void init_file_list(FILE_LIST *l, int list_size)
