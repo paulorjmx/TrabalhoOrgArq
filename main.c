@@ -65,6 +65,9 @@ int main(int argc, char const *argv[])
             scanf("%d", &n);
             for(int i = 0; i < n; i++)
             {
+                memset(telefone, 0x00, sizeof(telefone));
+                memset(nome, 0x00, sizeof(nome));
+                memset(cargo, 0x00, sizeof(cargo));
                 scanf("%s", query_field);
                 if(strcmp(query_field, "idServidor") == 0)
                 {
@@ -115,6 +118,9 @@ int main(int argc, char const *argv[])
             scanf("%d", &n);
             for(int i = 0; i < n; i++)
             {
+                memset(telefone, 0x00, sizeof(telefone));
+                memset(nome, 0x00, sizeof(nome));
+                memset(cargo, 0x00, sizeof(cargo));
                 scanf("%d", &idServidor);
                 scanf("%lf", &salarioServidor);
                 scan_quote_string(telefone);
@@ -145,6 +151,9 @@ int main(int argc, char const *argv[])
             scanf("%d", &n);
             for(int i = 0; i < n; i++)
             {
+                memset(telefone, 0x00, sizeof(telefone));
+                memset(nome, 0x00, sizeof(nome));
+                memset(cargo, 0x00, sizeof(cargo));
                 scanf("%s", query_field);
                 if(strcmp(query_field, "idServidor") == 0)
                 {
