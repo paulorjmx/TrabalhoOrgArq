@@ -2324,6 +2324,10 @@ int insert_bin(const char *file_name, int id, double salario, const char *telefo
                             fwrite(&encadeamento_lista, sizeof(long int), 1, arq);
                             fwrite(&id, sizeof(int), 1, arq);
                             fwrite(&salario, sizeof(double), 1, arq);
+                            if(strlen(telefone) == 0)
+                            {
+                                memset(telefone_servidor, 0x00, sizeof(telefone_servidor));
+                            }
                             fwrite(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, arq);
                             if(nome_servidor_size > 0)
                             {
