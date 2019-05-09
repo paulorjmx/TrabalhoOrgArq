@@ -14,9 +14,9 @@
 
 int main(int argc, char const *argv[])
 {
-    int option = -1, idServidor = 0, n = 0;
+    int option = -1, idServidor = 0, n = 0, r = 0;
     double salarioServidor = 0.0;
-    char cargo[200], nome[500], telefone[15], query_field[20], csv_file_name[100], data_file_name[100], update_field[20];
+    char cargo[500], nome[200], telefone[15], query_field[20], csv_file_name[100], data_file_name[100], update_field[20];
     scanf("%d", &option);
     switch(option)
     {
@@ -69,42 +69,45 @@ int main(int argc, char const *argv[])
                 if(strcmp(query_field, "idServidor") == 0)
                 {
                     scanf("%d", &idServidor);
-                    remove_by_id(data_file_name, idServidor);
+                    r = remove_by_id(data_file_name, idServidor);
                 }
                 else if(strcmp(query_field, "salarioServidor") == 0)
                 {
                     scanf("%lf", &salarioServidor);
-                    remove_by_salario(data_file_name, salarioServidor);
+                    r = remove_by_salario(data_file_name, salarioServidor);
                 }
                 else if(strcmp(query_field, "telefoneServidor") == 0)
                 {
-                    scanf(" %c%14[^\"]", &telefone[0], telefone); // Aramazena o valor da string sem aspas
+                    scan_quote_string(telefone);
                     if(strcmp(telefone, "NULO") == 0)
                     {
                         memset(telefone, 0x00, sizeof(telefone));
                     }
-                    remove_by_telefone(data_file_name, telefone);
+                    r = remove_by_telefone(data_file_name, telefone);
                 }
                 else if(strcmp(query_field, "nomeServidor") == 0)
                 {
-                    scanf(" %c%200[^\"]", &nome[0], nome); // Aramazena o valor da string sem aspas
+                    scan_quote_string(nome);
                     if(strcmp(nome, "NULO") == 0)
                     {
                         memset(nome, 0x00, sizeof(nome));
                     }
-                    remove_by_nome(data_file_name, nome);
+                    r = remove_by_nome(data_file_name, nome);
                 }
                 else if(strcmp(query_field, "cargoServidor") == 0)
                 {
-                    scanf(" %c%500[^\"]", &cargo[0], cargo); // Aramazena o valor da string sem aspas
+                    scan_quote_string(cargo);
                     if(strcmp(cargo, "NULO") == 0)
                     {
                         memset(cargo, 0x00, sizeof(cargo));
                     }
-                    remove_by_cargo(data_file_name, cargo);
+                    r = remove_by_cargo(data_file_name, cargo);
                 }
             }
-            binarioNaTela2(data_file_name);
+            if(r != -1)
+            {
+                binarioNaTela2(data_file_name);
+            }
             break;
 
         case 5:
@@ -114,9 +117,9 @@ int main(int argc, char const *argv[])
             {
                 scanf("%d", &idServidor);
                 scanf("%lf", &salarioServidor);
-                scanf(" %c%15[^\"]", &telefone[0], telefone);
-                scanf(" %c%200[^\"]", &nome[0], nome);
-                scanf(" %c%500[^\"]", &cargo[0], cargo);
+                scan_quote_string(telefone);
+                scan_quote_string(nome);
+                scan_quote_string(cargo);
                 if(strcmp(telefone, "NULO") == 0)
                 {
                     memset(telefone, 0x00, sizeof(telefone));
@@ -129,9 +132,12 @@ int main(int argc, char const *argv[])
                 {
                     memset(cargo, 0x00, sizeof(cargo));
                 }
-                insert_bin(data_file_name, idServidor, salarioServidor, telefone, nome, cargo);
+                r = insert_bin(data_file_name, idServidor, salarioServidor, telefone, nome, cargo);
             }
-            binarioNaTela2(data_file_name);
+            if(r != -1)
+            {
+                binarioNaTela2(data_file_name);
+            }
             break;
 
         case 6:
@@ -144,46 +150,49 @@ int main(int argc, char const *argv[])
                 {
                     scanf("%d", &idServidor);
                     scanf("%s", update_field);
-                    edit_by_id(data_file_name, idServidor, update_field);
+                    r = edit_by_id(data_file_name, idServidor, update_field);
                 }
                 else if(strcmp(query_field, "salarioServidor") == 0)
                 {
                     scanf("%lf", &salarioServidor);
                     scanf("%s", update_field);
-                    edit_by_salario(data_file_name, salarioServidor, update_field);
+                    r = edit_by_salario(data_file_name, salarioServidor, update_field);
                 }
                 else if(strcmp(query_field, "telefoneServidor") == 0)
                 {
-                    scanf(" %c%14[^\"]", &telefone[0], telefone); // Aramazena o valor da string sem aspas
+                    scan_quote_string(telefone);
                     if(strcmp(telefone, "NULO") == 0)
                     {
                         memset(telefone, 0x00, sizeof(telefone));
                     }
                     scanf("%s", update_field);
-                    edit_by_telefone(data_file_name, telefone, update_field);
+                    r = edit_by_telefone(data_file_name, telefone, update_field);
                 }
                 else if(strcmp(query_field, "nomeServidor") == 0)
                 {
-                    scanf(" %c%200[^\"]", &nome[0], nome); // Aramazena o valor da string sem aspas
+                    scan_quote_string(nome);
                     if(strcmp(nome, "NULO") == 0)
                     {
                         memset(nome, 0x00, sizeof(nome));
                     }
                     scanf("%s", update_field);
-                    edit_by_nome(data_file_name, nome, update_field);
+                    r = edit_by_nome(data_file_name, nome, update_field);
                 }
                 else if(strcmp(query_field, "cargoServidor") == 0)
                 {
-                    scanf(" %c%500[^\"]", &cargo[0], cargo); // Aramazena o valor da string sem aspas
+                    scan_quote_string(cargo);
                     if(strcmp(cargo, "NULO") == 0)
                     {
                         memset(cargo, 0x00, sizeof(cargo));
                     }
                     scanf("%s", update_field);
-                    edit_by_cargo(data_file_name, cargo, update_field);
+                    r = edit_by_cargo(data_file_name, cargo, update_field);
                 }
             }
-            binarioNaTela2(data_file_name);
+            if(r != -1)
+            {
+                binarioNaTela2(data_file_name);
+            }
             break;
 
         default:
