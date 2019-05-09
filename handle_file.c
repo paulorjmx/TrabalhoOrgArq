@@ -450,6 +450,12 @@ void get_all_data_file(const char *file_name)
                                     nome_servidor_size = 0;
                                     printf("\n");
                                 }
+                                else if(removido_token == '*')
+                                {
+                                    fread(&reg_size, sizeof(int), 1, arq);
+                                    total_bytes_readed += reg_size + sizeof(int);
+                                    fseek(arq, reg_size, SEEK_CUR);
+                                }
                             }
                             total_bytes_readed = 0;
                             disk_pages++;
@@ -1500,6 +1506,10 @@ int remove_by_id(const char *file_name, int id)
                                         flag_removed = 0x00;
                                         break;
                                     }
+                                    else
+                                    {
+                                        fseek(arq, current_register + reg_size + sizeof(int) + sizeof(char), SEEK_SET); // Pula o registro removido
+                                    }
                                 }
                             }
                             total_bytes_readed = 0;
@@ -1797,7 +1807,7 @@ int remove_by_telefone(const char *file_name, const char *telefone)
                                         fseek(arq, current_register, SEEK_SET); // Volta para o comeco do registro
                                         fwrite(&removido_mark, sizeof(char), 1, arq); // Marca como removido.
                                         fseek(arq, 12, SEEK_CUR); // Pula o campo do tamanho do registro e do encadeamento da lista
-                                        register_bytes_readed -= reg_size - 8; // Muda o valor para preencher os campos com lixo
+                                        register_bytes_readed = reg_size - 8; // Muda o valor para preencher os campos com lixo
                                         while(register_bytes_readed > 0) // Coloca lixo nos campos do registro.
                                         {
                                             fwrite(&bloat, sizeof(char), 1, arq);
@@ -1973,7 +1983,7 @@ int remove_by_nome(const char *file_name, const char *nome)
                                     }
                                     if(strcmp(nome_servidor, nome) == 0)
                                     {
-                                        printf("ACHOUT\n");
+                                        // printf("ACHOUT\n");
                                         i = ptr_list;
                                         while(i > -1 && reg_size <= list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
                                         {
@@ -1996,6 +2006,12 @@ int remove_by_nome(const char *file_name, const char *nome)
                                     }
                                     total_bytes_readed += reg_size;
                                     register_bytes_readed = 0;
+                                }
+                                else if(removido_token == '*')
+                                {
+                                    fread(&reg_size, sizeof(int), 1, arq);
+                                    total_bytes_readed += reg_size + sizeof(int);
+                                    fseek(arq, reg_size, SEEK_CUR);
                                 }
                             }
                             total_bytes_readed = 0;
@@ -2174,6 +2190,12 @@ int remove_by_cargo(const char *file_name, const char *cargo)
                                     total_bytes_readed += reg_size;
                                     register_bytes_readed = 0;
                                 }
+                                else if(removido_token == '*')
+                                {
+                                    fread(&reg_size, sizeof(int), 1, arq);
+                                    total_bytes_readed = reg_size + sizeof(int);
+                                    fseek(arq, reg_size, SEEK_CUR);
+                                }
                             }
                             total_bytes_readed = 0;
                             disk_pages++;
@@ -2212,15 +2234,16 @@ int remove_by_cargo(const char *file_name, const char *cargo)
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    return r;
 }
 
-void insert_bin(const char *file_name, int id, double salario, const char *telefone, const char *nome, const char *cargo)
+int insert_bin(const char *file_name, int id, double salario, const char *telefone, const char *nome, const char *cargo)
 {
     FILE_HEADER header;
     FILE_LIST list[LIST_TOTAL_SIZE];
     FILE *arq = NULL;
     char nome_servidor[200], cargo_servidor[500], telefone_servidor[15], removido_token = '-',  byte = '-', bloat = '@';
-    int  new_reg_size = 34, reg_size = 0, disk_pages = 0, ptr_list = -1, nome_servidor_size = 0, cargo_servidor_size = 0, min = -1, diff_result = 0, j = 0;
+    int  r = 0, new_reg_size = 34, reg_size = 0, disk_pages = 0, ptr_list = -1, nome_servidor_size = 0, cargo_servidor_size = 0, min = -1, diff_result = 0, j = 0;
     long int encadeamento_lista = -1, file_ptr = -1, file_size = 0, last_disk_page_size = 0;
     double qt_disk_pages = 0.0, total_disk_pages = 0.0;
     if(file_name != NULL)
@@ -2353,20 +2376,24 @@ void insert_bin(const char *file_name, int id, double salario, const char *telef
                 }
                 else
                 {
+                    r = -1;
                     printf("Falha no processamento do arquivo.\n");
                 }
             }
             else
             {
+                r = -1;
                 printf("Falha no processamento do arquivo.\n");
             }
             fclose(arq);
         }
         else
         {
+            r = -1;
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    return r;
 }
 
 void insert_full_disk_page(FILE *file, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo)
@@ -2451,7 +2478,7 @@ void insert_full_disk_page(FILE *file, int id, double salario, const char *telef
     }
 }
 
-void edit_by_id(const char *file_name, int id, const char *campo)
+int edit_by_id(const char *file_name, int id, const char *campo)
 {
     FILE_HEADER header;
     FILE *arq = NULL;
@@ -2461,7 +2488,7 @@ void edit_by_id(const char *file_name, int id, const char *campo)
     char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@', flag_found = 0x01, flag_removed = 0x01;
     char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
     int new_id = 0, disk_pages = 0, ptr_list = -1, var_field_size = 0;
-    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
+    int r = 0, i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
     long int encadeamento_lista = -1, current_register = 0;
     double salario_servidor = 0.0, new_salario_servidor = 0.0;
     if(strcmp(campo, "idServidor") == 0)
@@ -2585,23 +2612,27 @@ void edit_by_id(const char *file_name, int id, const char *campo)
                 }
                 else
                 {
+                    r = -1;
                     printf("Falha no processamento do arquivo.\n");
                 }
                 fclose(arq);
             }
             else
             {
+                r = -1;
                 printf("Falha no processamento do arquivo.\n");
             }
         }
         else
         {
+            r = -1;
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    return r;
 }
 
-void edit_by_salario(const char *file_name, double salario, const char *campo)
+int edit_by_salario(const char *file_name, double salario, const char *campo)
 {
     FILE_HEADER header;
     FILE *arq = NULL;
@@ -2611,7 +2642,7 @@ void edit_by_salario(const char *file_name, double salario, const char *campo)
     char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@';
     char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
     int disk_pages = 0, ptr_list = -1, var_field_size = 0, new_id = 0;
-    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
+    int r = 0, i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
     long int encadeamento_lista = -1, current_register = 0;
     double salario_servidor = 0.0, new_salario_servidor = 0.0;
     if(strcmp(campo, "idServidor") == 0)
@@ -2727,23 +2758,27 @@ void edit_by_salario(const char *file_name, double salario, const char *campo)
                 }
                 else
                 {
+                    r = -1;
                     printf("Falha no processamento do arquivo.\n");
                 }
                 fclose(arq);
             }
             else
             {
+                r = -1;
                 printf("Falha no processamento do arquivo.\n");
             }
         }
         else
         {
+            r = -1;
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    return r;
 }
 
-void edit_by_telefone(const char *file_name, const char *telefone, const char *campo)
+int edit_by_telefone(const char *file_name, const char *telefone, const char *campo)
 {
     FILE_HEADER header;
     FILE *arq = NULL;
@@ -2752,7 +2787,7 @@ void edit_by_telefone(const char *file_name, const char *telefone, const char *c
     void *valor_campo = NULL;
     char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@';
     char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
-    int disk_pages = 0, ptr_list = -1, var_field_size = 0, new_id = 0;
+    int r = 0, disk_pages = 0, ptr_list = -1, var_field_size = 0, new_id = 0;
     int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
     long int encadeamento_lista = -1, current_register = 0;
     double salario_servidor = 0.0, new_salario_servidor = 0.0;
@@ -2872,23 +2907,27 @@ void edit_by_telefone(const char *file_name, const char *telefone, const char *c
                 }
                 else
                 {
+                    r = -1;
                     printf("Falha no processamento do arquivo.\n");
                 }
                 fclose(arq);
             }
             else
             {
+                r = -1;
                 printf("Falha no processamento do arquivo.\n");
             }
         }
         else
         {
+            r = -1;
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    return r;
 }
 
-void edit_by_nome(const char *file_name, const char *nome, const char *campo)
+int edit_by_nome(const char *file_name, const char *nome, const char *campo)
 {
     FILE_HEADER header;
     FILE *arq = NULL;
@@ -2897,7 +2936,7 @@ void edit_by_nome(const char *file_name, const char *nome, const char *campo)
     void *valor_campo = NULL;
     char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@';
     char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
-    int disk_pages = 0, ptr_list = -1, var_field_size = 0, new_id = 0;
+    int r = 0, disk_pages = 0, ptr_list = -1, var_field_size = 0, new_id = 0;
     int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
     long int encadeamento_lista = -1, current_register = 0;
     double salario_servidor = 0.0, new_salario_servidor = 0.0;
@@ -3042,23 +3081,27 @@ void edit_by_nome(const char *file_name, const char *nome, const char *campo)
                 }
                 else
                 {
+                    r = -1;
                     printf("Falha no processamento do arquivo.\n");
                 }
                 fclose(arq);
             }
             else
             {
+                r = -1;
                 printf("Falha no processamento do arquivo.\n");
             }
         }
         else
         {
+            r = -1;
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    return r;
 }
 
-void edit_by_cargo(const char *file_name, const char *cargo, const char *campo)
+int edit_by_cargo(const char *file_name, const char *cargo, const char *campo)
 {
     FILE_HEADER header;
     FILE *arq = NULL;
@@ -3067,7 +3110,7 @@ void edit_by_cargo(const char *file_name, const char *cargo, const char *campo)
     void *valor_campo = NULL;
     char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@';
     char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
-    int disk_pages = 0, ptr_list = -1, var_field_size = 0, new_id = 0;
+    int r = 0, disk_pages = 0, ptr_list = -1, var_field_size = 0, new_id = 0;
     int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
     long int encadeamento_lista = -1, current_register = 0;
     double salario_servidor = 0.0, new_salario_servidor = 0.0;
@@ -3212,20 +3255,24 @@ void edit_by_cargo(const char *file_name, const char *cargo, const char *campo)
                 }
                 else
                 {
+                    r = -1;
                     printf("Falha no processamento do arquivo.\n");
                 }
                 fclose(arq);
             }
             else
             {
+                r = -1;
                 printf("Falha no processamento do arquivo.\n");
             }
         }
         else
         {
+            r = -1;
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    return r;
 }
 
 void edit_register(const char *file_name, const char *campo, void *valor_campo, long int comeco_registro, char tag_campo4, char tag_campo5)
