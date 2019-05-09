@@ -1377,7 +1377,7 @@ void print_file_header(FILE_HEADER header)
 }
 
 
-void remove_by_id(const char *file_name, int id)
+int remove_by_id(const char *file_name, int id)
 {
     FILE_HEADER header;
     FILE_LIST list[LIST_TOTAL_SIZE]; // List eh utilizada para guardar os byte offsets dos registros removidos logicamente.
@@ -1386,7 +1386,7 @@ void remove_by_id(const char *file_name, int id)
     // removido_token eh utilizado para ler o primeiro byte do registro
     // flag_found e flag_removed sao utilizados para parar o loop
     char removido_token = '-', removido_mark = '*', bloat = '@', flag_found = 0x01, flag_removed = 0x01;
-    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, disk_pages = 0, ptr_list = -1;
+    int r = 0, i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, disk_pages = 0, ptr_list = -1;
     long int encadeamento_lista = -1, current_register = 0;
     if(file_name != NULL)
     {
@@ -1519,30 +1519,33 @@ void remove_by_id(const char *file_name, int id)
                 }
                 else
                 {
+                    r = -1;
                     printf("Falha no processamento do arquivo.\n");
                 }
                 fclose(arq);
             }
             else
             {
+                r = -1;
                 printf("Falha no processamento do arquivo.\n");
             }
         }
         else
         {
+            r = -1;
             printf("Falha no processamento do arquivo.\n");
         }
     }
 }
 
-void remove_by_salario(const char *file_name, double salario)
+int remove_by_salario(const char *file_name, double salario)
 {
     FILE_HEADER header;
     FILE_LIST list[LIST_TOTAL_SIZE]; // List eh utilizada para guardar os byte offsets dos registros removidos logicamente.
     FILE *arq = NULL;
     // removido_mark serve para marcar o registro como removido.
     char removido_token = '-', removido_mark = '*', bloat = '@';
-    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, disk_pages = 0, ptr_list = -1;
+    int r = 0, i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, disk_pages = 0, ptr_list = -1;
     // current_register e um ponteiro auxiliar para apontar para o comeco de cada registro do arquivo no decorrer do loop
     long int encadeamento_lista = -1, current_register = 0;
     double salario_servidor = 0.0;
@@ -1677,30 +1680,34 @@ void remove_by_salario(const char *file_name, double salario)
                 }
                 else
                 {
+                    r = -1;
                     printf("Falha no processamento do arquivo.\n");
                 }
                 fclose(arq);
             }
             else
             {
+                r = -1;
                 printf("Falha no processamento do arquivo.\n");
             }
         }
         else
         {
+            r = -1;
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    return r;
 }
 
-void remove_by_telefone(const char *file_name, const char *telefone)
+int remove_by_telefone(const char *file_name, const char *telefone)
 {
     FILE_HEADER header;
     FILE_LIST list[LIST_TOTAL_SIZE]; // List eh utilizada para guardar os byte offsets dos registros removidos logicamente.
     FILE *arq = NULL;
     // removido_mark serve para marcar o registro como removido.
     char telefone_servidor[15], removido_token = '-', removido_mark = '*', bloat = '@';
-    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, disk_pages = 0, ptr_list = -1;
+    int r = 0, i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, disk_pages = 0, ptr_list = -1;
     // current_register e um ponteiro auxiliar para apontar para o comeco de cada registro do arquivo no decorrer do loop
     long int encadeamento_lista = -1, current_register = 0;
     double salario_servidor = 0.0;
@@ -1831,31 +1838,34 @@ void remove_by_telefone(const char *file_name, const char *telefone)
                 }
                 else
                 {
+                    r = -1;
                     printf("Falha no processamento do arquivo.\n");
                 }
                 fclose(arq);
             }
             else
             {
+                r = -1;
                 printf("Falha no processamento do arquivo.\n");
             }
         }
         else
         {
+            r = -1;
             printf("Falha no processamento do arquivo.\n");
         }
     }
 }
 
 
-void remove_by_nome(const char *file_name, const char *nome)
+int remove_by_nome(const char *file_name, const char *nome)
 {
     FILE_HEADER header;
     FILE_LIST list[LIST_TOTAL_SIZE]; // List eh utilizada para guardar os byte offsets dos registros removidos logicamente.
     FILE *arq = NULL;
     // removido_mark serve para marcar o registro como removido.
     char nome_servidor[500], cargo_servidor[200], telefone_servidor[15], removido_token = '-', removido_mark = '*', bloat = '@', trash = '@', tag_campo = '#';
-    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, var_field_size = 0, disk_pages = 0, ptr_list = -1;
+    int r = 0, i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, var_field_size = 0, disk_pages = 0, ptr_list = -1;
     // current_register e um ponteiro auxiliar para apontar para o comeco de cada registro do arquivo no decorrer do loop
     long int encadeamento_lista = -1, current_register = 0;
     double salario_servidor = 0.0;
@@ -1912,6 +1922,7 @@ void remove_by_nome(const char *file_name, const char *nome)
                             while(total_bytes_readed < CLUSTER_SIZE)
                             {
                                 memset(nome_servidor, 0x00, sizeof(nome_servidor));
+                                memset(telefone_servidor, 0x00, sizeof(telefone_servidor));
                                 memset(cargo_servidor, 0x00, sizeof(cargo_servidor));
                                 current_register = ftell(arq);
                                 fread(&removido_token, sizeof(char), 1, arq);
@@ -1962,6 +1973,7 @@ void remove_by_nome(const char *file_name, const char *nome)
                                     }
                                     if(strcmp(nome_servidor, nome) == 0)
                                     {
+                                        printf("ACHOUT\n");
                                         i = ptr_list;
                                         while(i > -1 && reg_size <= list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
                                         {
@@ -2006,30 +2018,33 @@ void remove_by_nome(const char *file_name, const char *nome)
                 }
                 else
                 {
+                    r = -1;
                     printf("Falha no processamento do arquivo.\n");
                 }
                 fclose(arq);
             }
             else
             {
+                r = -1;
                 printf("Falha no processamento do arquivo.\n");
             }
         }
         else
         {
+            r = -1;
             printf("Falha no processamento do arquivo.\n");
         }
     }
 }
 
-void remove_by_cargo(const char *file_name, const char *cargo)
+int remove_by_cargo(const char *file_name, const char *cargo)
 {
     FILE_HEADER header;
     FILE_LIST list[LIST_TOTAL_SIZE]; // List eh utilizada para guardar os byte offsets dos registros removidos logicamente.
     FILE *arq = NULL;
     // removido_mark serve para marcar o registro como removido.
     char nome_servidor[500], cargo_servidor[200], telefone_servidor[15], removido_token = '-', removido_mark = '*', bloat = '@', trash = '@', tag_campo = '#';
-    int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, var_field_size = 0, disk_pages = 0, ptr_list = -1;
+    int r = 0, i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, var_field_size = 0, disk_pages = 0, ptr_list = -1;
     // current_register e um ponteiro auxiliar para apontar para o comeco de cada registro do arquivo no decorrer do loop
     long int encadeamento_lista = -1, current_register = 0;
     double salario_servidor = 0.0;
@@ -2180,17 +2195,20 @@ void remove_by_cargo(const char *file_name, const char *cargo)
                 }
                 else
                 {
+                    r = -1;
                     printf("Falha no processamento do arquivo.\n");
                 }
                 fclose(arq);
             }
             else
             {
+                r = -1;
                 printf("Falha no processamento do arquivo.\n");
             }
         }
         else
         {
+            r = -1;
             printf("Falha no processamento do arquivo.\n");
         }
     }
