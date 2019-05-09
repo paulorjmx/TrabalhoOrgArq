@@ -7,7 +7,6 @@
 
 
 #include "inc/handle_file.h"
-#include "inc/func_aux.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1459,7 +1458,7 @@ void remove_by_id(const char *file_name, int id)
                                     if(id_servidor == id) //  Se o valor do campo for igual ao valor a ser buscado e nao foi removido.
                                     {
                                         i = ptr_list;
-                                        while(i > -1 && reg_size < list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
+                                        while(i > -1 && reg_size <= list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
                                         {
                                             list[(i + 1)].reg_size = list[i].reg_size;
                                             list[(i + 1)].byte_offset = list[i].byte_offset;
@@ -1619,7 +1618,7 @@ void remove_by_salario(const char *file_name, double salario)
                                     if(salario_servidor == salario) //  Se o valor do campo for igual ao valor a ser buscado e nao foi removido.
                                     {
                                         i = ptr_list;
-                                        while(i > -1 && reg_size < list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
+                                        while(i > -1 && reg_size <= list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
                                         {
                                             list[(i + 1)].reg_size = list[i].reg_size; // Desloca o no para a proxima posicao
                                             list[(i + 1)].byte_offset = list[i].byte_offset;
@@ -1779,7 +1778,7 @@ void remove_by_telefone(const char *file_name, const char *telefone)
                                     if(strcmp(telefone_servidor, telefone) == 0) //  Se o valor do campo for igual ao valor a ser buscado e nao foi removido.
                                     {
                                         i = ptr_list;
-                                        while(i > -1 && reg_size < list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
+                                        while(i > -1 && reg_size <= list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
                                         {
                                             list[(i + 1)].reg_size = list[i].reg_size; // Desloca o no para a proxima posicao
                                             list[(i + 1)].byte_offset = list[i].byte_offset;
@@ -1964,7 +1963,7 @@ void remove_by_nome(const char *file_name, const char *nome)
                                     if(strcmp(nome_servidor, nome) == 0)
                                     {
                                         i = ptr_list;
-                                        while(i > -1 && reg_size < list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
+                                        while(i > -1 && reg_size <= list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
                                         {
                                             list[(i + 1)].reg_size = list[i].reg_size; // Desloca o no para a proxima posicao
                                             list[(i + 1)].byte_offset = list[i].byte_offset;
@@ -2138,7 +2137,7 @@ void remove_by_cargo(const char *file_name, const char *cargo)
                                     if(strcmp(cargo_servidor, cargo) == 0)
                                     {
                                         i = ptr_list;
-                                        while(i > -1 && reg_size < list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
+                                        while(i > -1 && reg_size <= list[i].reg_size) // Insere ordenadamente na lista o novo registro removido
                                         {
                                             list[(i + 1)].reg_size = list[i].reg_size; // Desloca o no para a proxima posicao
                                             list[(i + 1)].byte_offset = list[i].byte_offset;
@@ -2801,6 +2800,7 @@ void edit_by_telefone(const char *file_name, const char *telefone, const char *c
                         {
                             while(total_bytes_readed < CLUSTER_SIZE)
                             {
+                                memset(telefone_servidor, 0x00, sizeof(telefone_servidor));
                                 current_register = ftell(arq);
                                 fread(&removido_token, sizeof(char), 1, arq);
                                 total_bytes_readed += sizeof(char);
@@ -2945,6 +2945,9 @@ void edit_by_nome(const char *file_name, const char *nome, const char *campo)
                         {
                             while(total_bytes_readed < CLUSTER_SIZE)
                             {
+                                memset(nome_servidor, 0x00, sizeof(nome_servidor));
+                                memset(cargo_servidor, 0x00, sizeof(cargo_servidor));
+                                memset(telefone_servidor, 0x00, sizeof(telefone_servidor));
                                 current_register = ftell(arq);
                                 fread(&removido_token, sizeof(char), 1, arq);
                                 total_bytes_readed += sizeof(char);
@@ -3112,6 +3115,9 @@ void edit_by_cargo(const char *file_name, const char *cargo, const char *campo)
                         {
                             while(total_bytes_readed < CLUSTER_SIZE)
                             {
+                                memset(nome_servidor, 0x00, sizeof(nome_servidor));
+                                memset(cargo_servidor, 0x00, sizeof(cargo_servidor));
+                                memset(telefone_servidor, 0x00, sizeof(telefone_servidor));
                                 current_register = ftell(arq);
                                 fread(&removido_token, sizeof(char), 1, arq);
                                 total_bytes_readed += sizeof(char);
