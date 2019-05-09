@@ -15,12 +15,12 @@
         void search_for_telefone(const char *file_name, const char *telefone); //  Funcao que recupera o registro que tem como campo incomum o telefone procurado
         void search_for_nome(const char *file_name, const char *nome); //  Funcao que recupera o registro que tem como campo incomum o nome procurado
         void search_for_cargo(const char *file_name, const char *cargo); //  Funcao que recupera o registro que tem como campo incomum o cargo procurado
-        void remove_by_id(const char *file_name, int id); // Funcao que remove um registro baseado em seu idServidor
-        void remove_by_salario(const char *file_name, double salario); // Funcao que remove um registro baseado no campo salario
-        void remove_by_cargo(const char *file_name, const char *cargo); // Funcao que remove um registro baseado no campo cargo
-        void remove_by_telefone(const char *file_name, const char *telefone); // Funcao que remove um registro baseado no campo telefone
-        void remove_by_nome(const char *file_name, const char *nome); // Funcao que remove um registro baseado no campo nome
-        void remove_by_cargo(const char *file_name, const char *cargo); // Funcao que remove um registro baseado no campo cargo
+        int remove_by_id(const char *file_name, int id); // Funcao que remove um registro baseado em seu idServidor
+        int remove_by_salario(const char *file_name, double salario); // Funcao que remove um registro baseado no campo salario
+        int remove_by_cargo(const char *file_name, const char *cargo); // Funcao que remove um registro baseado no campo cargo
+        int remove_by_telefone(const char *file_name, const char *telefone); // Funcao que remove um registro baseado no campo telefone
+        int remove_by_nome(const char *file_name, const char *nome); // Funcao que remove um registro baseado no campo nome
+        int remove_by_cargo(const char *file_name, const char *cargo); // Funcao que remove um registro baseado no campo cargo
         void insert_bin(const char *file_name, int id, double salario, const char *telefone, const char *nome, const char *cargo); // Funcao que insere um registro novo
         void edit_by_id(const char *file_name, int id, const char *campo); // Funcao utilizada para editar registros baseado em um idServidor e um campo que deseja editar
         void edit_by_salario(const char *file_name, double salario, const char *campo); // Funcao utilizada para editar registros baseado em um salarioServidor e um campo que deseja editar
