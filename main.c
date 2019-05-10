@@ -16,7 +16,7 @@ int main(int argc, char const *argv[])
 {
     int option = -1, idServidor = 0, n = 0, r = 0;
     double salarioServidor = 0.0;
-    char cargo[500], nome[200], telefone[15], query_field[20], csv_file_name[100], data_file_name[100], update_field[20];
+    char salario[300], cargo[500], nome[200], telefone[15], query_field[20], csv_file_name[100], data_file_name[100], update_field[20];
     scanf("%d", &option);
     switch(option)
     {
@@ -76,7 +76,15 @@ int main(int argc, char const *argv[])
                 }
                 else if(strcmp(query_field, "salarioServidor") == 0)
                 {
-                    scanf("%lf", &salarioServidor);
+                    scan_quote_string(salario);
+                    if(strcmp(salario, "NULO") == 0)
+                    {
+                        salarioServidor = -1.0;
+                    }
+                    else
+                    {
+                        salarioServidor = strtod(salario, NULL);
+                    }
                     r = remove_by_salario(data_file_name, salarioServidor);
                 }
                 else if(strcmp(query_field, "telefoneServidor") == 0)
@@ -121,8 +129,9 @@ int main(int argc, char const *argv[])
                 memset(telefone, 0x00, sizeof(telefone));
                 memset(nome, 0x00, sizeof(nome));
                 memset(cargo, 0x00, sizeof(cargo));
+                memset(salario, 0x00, sizeof(salario));
                 scanf("%d", &idServidor);
-                scanf("%lf", &salarioServidor);
+                scanf("%s", salario);
                 scan_quote_string(telefone);
                 scan_quote_string(nome);
                 scan_quote_string(cargo);
@@ -137,6 +146,14 @@ int main(int argc, char const *argv[])
                 if(strcmp(cargo, "NULO") == 0)
                 {
                     memset(cargo, 0x00, sizeof(cargo));
+                }
+                if(strcmp(salario, "NULO") == 0)
+                {
+                    salarioServidor = -1.0;
+                }
+                else
+                {
+                    salarioServidor = strtod(salario, NULL);
                 }
                 r = insert_bin(data_file_name, idServidor, salarioServidor, telefone, nome, cargo);
             }
@@ -163,7 +180,15 @@ int main(int argc, char const *argv[])
                 }
                 else if(strcmp(query_field, "salarioServidor") == 0)
                 {
-                    scanf("%lf", &salarioServidor);
+                    scanf("%s", &salario);
+                    if(strcmp(salario, "NULO") == 0)
+                    {
+                        salarioServidor = -1.0;
+                    }
+                    else
+                    {
+                        salarioServidor = strtod(salario, NULL);
+                    }
                     scanf("%s", update_field);
                     r = edit_by_salario(data_file_name, salarioServidor, update_field);
                 }
