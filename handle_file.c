@@ -2268,7 +2268,14 @@ int insert_bin(const char *file_name, int id, double salario, const char *telefo
                         cargo_servidor_size = strlen(cargo) + 2;
                         new_reg_size += cargo_servidor_size + 4;
                     }
-                    strcpy(telefone_servidor, telefone);
+                    if(strlen(telefone) == 0)
+                    {
+                        telefone_servidor[0] = '\0';
+                        for(int i = 0; i < sizeof(telefone_servidor); i++)
+                        {
+                            telefone_servidor[i] = '@';
+                        }
+                    }
                     init_file_list(list, LIST_TOTAL_SIZE);
                     fread(&header.topo_lista, sizeof(header.topo_lista), 1, arq);
                     fread(&header.tag_campo1, sizeof(header.tag_campo1), 1, arq);
@@ -2324,10 +2331,6 @@ int insert_bin(const char *file_name, int id, double salario, const char *telefo
                             fwrite(&encadeamento_lista, sizeof(long int), 1, arq);
                             fwrite(&id, sizeof(int), 1, arq);
                             fwrite(&salario, sizeof(double), 1, arq);
-                            if(strlen(telefone) == 0)
-                            {
-                                memset(telefone_servidor, 0x00, sizeof(telefone_servidor));
-                            }
                             fwrite(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, arq);
                             if(nome_servidor_size > 0)
                             {
@@ -2345,13 +2348,13 @@ int insert_bin(const char *file_name, int id, double salario, const char *telefo
                         }
                         else // Se nao achou na lista um registro que caiba o registro a ser inserido
                         {
-                            insert_full_disk_page(arq, id, salario, telefone, header.tag_campo4, nome, header.tag_campo5, cargo);
+                            insert_full_disk_page(arq, id, salario, telefone_servidor, header.tag_campo4, nome, header.tag_campo5, cargo);
                         }
                     }
                     else
                     {
                         // Lista vazia
-                        insert_full_disk_page(arq, id, salario, telefone, header.tag_campo4, nome, header.tag_campo5, cargo);
+                        insert_full_disk_page(arq, id, salario, telefone_servidor, header.tag_campo4, nome, header.tag_campo5, cargo);
                     }
                     // Atualiza a lista
                     for(int k = 0; k < ptr_list; k++)
@@ -2425,16 +2428,15 @@ void insert_full_disk_page(FILE *file, int id, double salario, const char *telef
         fseek(file, 0, SEEK_END);
         file_size = ftell(file);
         qt_disk_pages = file_size / 32000.0;
-        printf("QT_DISKS: %lf\n", qt_disk_pages);
         modf(qt_disk_pages, &total_disk_pages);
-        fseek(file, (total_disk_pages * CLUSTER_SIZE), SEEK_SET);
+        fseek(file, (total_disk_pages * CLUSTER_SIZE), SEEK_SET); // Vai para o comeco do primeiro registro da ultima pagina de disco
         last_disk_page_size = file_size - ftell(file); // Calcula o tamanho da ultima pagina de disco
         // Eh necessario verificar se o registro cabe na ultima pagina de disco
-        if((last_disk_page_size + new_reg_size) >= CLUSTER_SIZE) // Se o registro nao cabe na ultima pagina de disco
+        if((last_disk_page_size + new_reg_size) > CLUSTER_SIZE) // Se o registro nao cabe na ultima pagina de disco
         {
             while(1) // Loop para ir ate o ultimo registro
             {
-                fread(&byte, sizeof(char), 1, file);
+                fread(&byte, sizeof(char), 1, file); // Le o primeiro byte do registro
                 if(feof(file) != 0)
                 {
                     break;
