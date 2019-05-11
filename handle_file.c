@@ -7,6 +7,7 @@
 
 
 #include "inc/handle_file.h"
+#include "inc/func_aux.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,6 +37,7 @@ void init_file_list(FILE_LIST *l, int list_size); // Funcao utilizada para inici
 int binary_search(FILE_LIST *l, int list_size); // Funcao utilizada para buscar na lista de registros removidos, seguindo a abordagem best fit
 void insert_full_disk_page(FILE *file, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo); // Funcao utilizada para inserir o registro em uma pagina de disco
 void edit_register(const char *file_name, const char *campo, void *valor_campo, long int comeco_registro, char tag_campo4, char tag_campo5); // Funcao utilizada para atualizar um campo no registro que tem comeco em comeco_registro
+void *get_user_clean_input(const char *campo); // Funcao utilizada para entrada do usuario removendo aspas
 
 
 
@@ -2271,7 +2273,7 @@ int insert_bin(const char *file_name, int id, double salario, const char *telefo
                     if(strlen(telefone) == 0)
                     {
                         telefone_servidor[0] = '\0';
-                        for(int i = 0; i < sizeof(telefone_servidor); i++)
+                        for(int i = 1; i < sizeof(telefone_servidor); i++)
                         {
                             telefone_servidor[i] = '@';
                         }
@@ -2431,7 +2433,7 @@ void insert_full_disk_page(FILE *file, int id, double salario, const char *telef
         if(strlen(telefone) == 0)
         {
             telefone_servidor[0] = '\0';
-            for(int i = 0; i < sizeof(telefone_servidor); i++)
+            for(int i = 1; i < sizeof(telefone_servidor); i++)
             {
                 telefone_servidor[i] = '@';
             }
@@ -2507,36 +2509,13 @@ int edit_by_id(const char *file_name, int id, const char *campo)
     // O ponteiro para void eh necessario para passar parametros para a funcao edit register
     void *valor_campo = NULL;
     char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@', flag_found = 0x01, flag_removed = 0x01;
-    char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
-    int new_id = 0, disk_pages = 0, ptr_list = -1, var_field_size = 0;
+    char telefone_servidor[15], nome_servidor[200], cargo_servidor[500];
+    int disk_pages = 0, ptr_list = -1, var_field_size = 0;
     int r = 0, i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
     long int encadeamento_lista = -1, current_register = 0;
-    double salario_servidor = 0.0, new_salario_servidor = 0.0;
-    if(strcmp(campo, "idServidor") == 0)
-    {
-        scanf("%d", &new_id);
-        valor_campo = &new_id;
-    }
-    else if(strcmp(campo, "salarioServidor") == 0)
-    {
-        scanf("%lf", &new_salario_servidor);
-        valor_campo = &new_salario_servidor;
-    }
-    else if(strcmp(campo, "telefoneServidor") == 0)
-    {
-        scanf("%s", new_telefone_servidor);
-        valor_campo = new_telefone_servidor;
-    }
-    else if(strcmp(campo, "nomeServidor") == 0)
-    {
-        scanf(" %200[^\n\r]s", new_nome_servidor);
-        valor_campo = new_nome_servidor;
-    }
-    else if(strcmp(campo, "cargoServidor") == 0)
-    {
-        scanf(" %500[^\n\r]s", new_cargo_servidor);
-        valor_campo = new_cargo_servidor;
-    }
+    double salario_servidor = 0.0;
+    // Le o novo valor que o campo a ser editado tera
+    valor_campo = get_user_clean_input(campo);
     if(file_name != NULL)
     {
         if(access(file_name, F_OK) == 0)
@@ -2600,9 +2579,12 @@ int edit_by_id(const char *file_name, int id, const char *campo)
                                         arq = fopen(file_name, "r+b");
                                         header.status = '0';
                                         fwrite(&header.status, sizeof(header.status), 1, arq);
-                                        fseek(arq, current_register + reg_size + 1, SEEK_SET);
                                         flag_found = 0x00;
                                         break;
+                                    }
+                                    else
+                                    {
+                                        fseek(arq, current_register + reg_size + sizeof(int) + sizeof(char), SEEK_SET); // Pula o registro removido
                                     }
                                 }
                                 else if(removido_token == '*')
@@ -2617,6 +2599,10 @@ int edit_by_id(const char *file_name, int id, const char *campo)
                                     {
                                         flag_removed = 0x00;
                                         break;
+                                    }
+                                    else
+                                    {
+                                        fseek(arq, current_register + reg_size + sizeof(int) + sizeof(char), SEEK_SET); // Pula o registro removido
                                     }
                                 }
                                 register_bytes_readed = 0;
@@ -2650,6 +2636,7 @@ int edit_by_id(const char *file_name, int id, const char *campo)
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    free(valor_campo);
     return r;
 }
 
@@ -2661,36 +2648,13 @@ int edit_by_salario(const char *file_name, double salario, const char *campo)
     // O ponteiro para void eh necessario para passar parametros para a funcao edit register
     void *valor_campo = NULL;
     char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@';
-    char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
-    int disk_pages = 0, ptr_list = -1, var_field_size = 0, new_id = 0;
+    char telefone_servidor[15], nome_servidor[200], cargo_servidor[500];
+    int disk_pages = 0, ptr_list = -1, var_field_size = 0;
     int r = 0, i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
     long int encadeamento_lista = -1, current_register = 0;
-    double salario_servidor = 0.0, new_salario_servidor = 0.0;
-    if(strcmp(campo, "idServidor") == 0)
-    {
-        scanf("%d", &new_id);
-        valor_campo = &new_id;
-    }
-    else if(strcmp(campo, "salarioServidor") == 0)
-    {
-        scanf("%lf", &new_salario_servidor);
-        valor_campo = &new_salario_servidor;
-    }
-    else if(strcmp(campo, "telefoneServidor") == 0)
-    {
-        scanf("%s", new_telefone_servidor);
-        valor_campo = new_telefone_servidor;
-    }
-    else if(strcmp(campo, "nomeServidor") == 0)
-    {
-        scanf(" %200[^\n\r]s", new_nome_servidor);
-        valor_campo = new_nome_servidor;
-    }
-    else if(strcmp(campo, "cargoServidor") == 0)
-    {
-        scanf(" %500[^\n\r]s", new_cargo_servidor);
-        valor_campo = new_cargo_servidor;
-    }
+    double salario_servidor = 0.0;
+    // Le o novo valor que o campo a ser editado tera
+    valor_campo = get_user_clean_input(campo);
     if(file_name != NULL)
     {
         if(access(file_name, F_OK) == 0)
@@ -2758,9 +2722,9 @@ int edit_by_salario(const char *file_name, double salario, const char *campo)
                                         header.status = '0';
                                         fwrite(&header.status, sizeof(header.status), 1, arq);
                                     }
-                                    fseek(arq, current_register + reg_size + 1, SEEK_SET);
+                                    fseek(arq, current_register + reg_size + sizeof(int) + sizeof(char), SEEK_SET); // Pula o registro
                                 }
-                                else
+                                else if(removido_token == '*')
                                 {
                                     fread(&reg_size, sizeof(int), 1, arq);
                                     fseek(arq, reg_size, SEEK_CUR);
@@ -2796,6 +2760,7 @@ int edit_by_salario(const char *file_name, double salario, const char *campo)
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    free(valor_campo);
     return r;
 }
 
@@ -2807,36 +2772,13 @@ int edit_by_telefone(const char *file_name, const char *telefone, const char *ca
     // O ponteiro para void eh necessario para passar parametros para a funcao edit register
     void *valor_campo = NULL;
     char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@';
-    char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
+    char telefone_servidor[15], nome_servidor[200], cargo_servidor[500];
     int r = 0, disk_pages = 0, ptr_list = -1, var_field_size = 0, new_id = 0;
     int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
     long int encadeamento_lista = -1, current_register = 0;
-    double salario_servidor = 0.0, new_salario_servidor = 0.0;
-    if(strcmp(campo, "idServidor") == 0)
-    {
-        scanf("%d", &new_id);
-        valor_campo = &new_id;
-    }
-    else if(strcmp(campo, "salarioServidor") == 0)
-    {
-        scanf("%lf", &new_salario_servidor);
-        valor_campo = &new_salario_servidor;
-    }
-    else if(strcmp(campo, "telefoneServidor") == 0)
-    {
-        scanf("%s", new_telefone_servidor);
-        valor_campo = new_telefone_servidor;
-    }
-    else if(strcmp(campo, "nomeServidor") == 0)
-    {
-        scanf(" %200[^\n\r]s", new_nome_servidor);
-        valor_campo = new_nome_servidor;
-    }
-    else if(strcmp(campo, "cargoServidor") == 0)
-    {
-        scanf(" %500[^\n\r]s", new_cargo_servidor);
-        valor_campo = new_cargo_servidor;
-    }
+    double salario_servidor = 0.0;
+    // Le o novo valor que o campo a ser editado tera
+    valor_campo = get_user_clean_input(campo);
     if(file_name != NULL)
     {
         if(access(file_name, F_OK) == 0)
@@ -2894,6 +2836,7 @@ int edit_by_telefone(const char *file_name, const char *telefone, const char *ca
                                     register_bytes_readed += sizeof(double);
                                     fread(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, arq);
                                     register_bytes_readed += sizeof(telefone_servidor) - 1;
+                                    // printf("PHONE: %s\n", telefone_servidor);
                                     if(strcmp(telefone_servidor, telefone) == 0) //  Se o valor do campo for igual ao valor a ser buscado e nao foi removido.
                                     {
                                         // Edita o registro.
@@ -2907,9 +2850,9 @@ int edit_by_telefone(const char *file_name, const char *telefone, const char *ca
                                         header.status = '0';
                                         fwrite(&header.status, sizeof(header.status), 1, arq);
                                     }
-                                    fseek(arq, current_register + reg_size + 1, SEEK_SET);
+                                    fseek(arq, current_register + reg_size + sizeof(int) + sizeof(char), SEEK_SET); // Pula o registro
                                 }
-                                else
+                                else if(removido_token == '*')
                                 {
                                     fread(&reg_size, sizeof(int), 1, arq);
                                     fseek(arq, reg_size, SEEK_CUR);
@@ -2945,6 +2888,7 @@ int edit_by_telefone(const char *file_name, const char *telefone, const char *ca
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    free(valor_campo);
     return r;
 }
 
@@ -2956,36 +2900,13 @@ int edit_by_nome(const char *file_name, const char *nome, const char *campo)
     // O ponteiro para void eh necessario para passar parametros para a funcao edit register
     void *valor_campo = NULL;
     char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@';
-    char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
-    int r = 0, disk_pages = 0, ptr_list = -1, var_field_size = 0, new_id = 0;
+    char telefone_servidor[15], nome_servidor[200], cargo_servidor[500];
+    int r = 0, disk_pages = 0, ptr_list = -1, var_field_size = 0;
     int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
     long int encadeamento_lista = -1, current_register = 0;
-    double salario_servidor = 0.0, new_salario_servidor = 0.0;
-    if(strcmp(campo, "idServidor") == 0)
-    {
-        scanf("%d", &new_id);
-        valor_campo = &new_id;
-    }
-    else if(strcmp(campo, "salarioServidor") == 0)
-    {
-        scanf("%lf", &new_salario_servidor);
-        valor_campo = &new_salario_servidor;
-    }
-    else if(strcmp(campo, "telefoneServidor") == 0)
-    {
-        scanf("%s", new_telefone_servidor);
-        valor_campo = new_telefone_servidor;
-    }
-    else if(strcmp(campo, "nomeServidor") == 0)
-    {
-        scanf(" %200[^\n\r]s", new_nome_servidor);
-        valor_campo = new_nome_servidor;
-    }
-    else if(strcmp(campo, "cargoServidor") == 0)
-    {
-        scanf(" %500[^\n\r]s", new_cargo_servidor);
-        valor_campo = new_cargo_servidor;
-    }
+    double salario_servidor = 0.0;
+    // Le o novo valor que o campo a ser editado tera
+    valor_campo = get_user_clean_input(campo);
     if(file_name != NULL)
     {
         if(access(file_name, F_OK) == 0)
@@ -3086,7 +3007,12 @@ int edit_by_nome(const char *file_name, const char *nome, const char *campo)
                                         header.status = '0';
                                         fwrite(&header.status, sizeof(header.status), 1, arq);
                                     }
-                                    fseek(arq, current_register + reg_size + 1, SEEK_SET);
+                                    fseek(arq, current_register + reg_size + sizeof(int) + sizeof(char), SEEK_SET); // Pula o registro
+                                }
+                                else if(removido_token == '*')
+                                {
+                                    fread(&reg_size, sizeof(int), 1, arq);
+                                    fseek(arq, reg_size, SEEK_CUR);
                                 }
                                 register_bytes_readed = 0;
                                 cargo_servidor_size = 0;
@@ -3119,6 +3045,7 @@ int edit_by_nome(const char *file_name, const char *nome, const char *campo)
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    free(valor_campo);
     return r;
 }
 
@@ -3126,40 +3053,15 @@ int edit_by_cargo(const char *file_name, const char *cargo, const char *campo)
 {
     FILE_HEADER header;
     FILE *arq = NULL;
-    // removido_token eh utilizado para ler o primeiro byte do registro
     // O ponteiro para void eh necessario para passar parametros para a funcao edit register
     void *valor_campo = NULL;
     char trash = '-', tag_campo = '#', removido_token = '-', bloat = '@';
-    char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
-    int r = 0, disk_pages = 0, ptr_list = -1, var_field_size = 0, new_id = 0;
+    char telefone_servidor[15], nome_servidor[200], cargo_servidor[500];
+    int r = 0, disk_pages = 0, ptr_list = -1, var_field_size = 0;
     int i = 0, id_servidor = 0, reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, cargo_servidor_size = 0, nome_servidor_size = 0;
     long int encadeamento_lista = -1, current_register = 0;
-    double salario_servidor = 0.0, new_salario_servidor = 0.0;
-    if(strcmp(campo, "idServidor") == 0)
-    {
-        scanf("%d", &new_id);
-        valor_campo = &new_id;
-    }
-    else if(strcmp(campo, "salarioServidor") == 0)
-    {
-        scanf("%lf", &new_salario_servidor);
-        valor_campo = &new_salario_servidor;
-    }
-    else if(strcmp(campo, "telefoneServidor") == 0)
-    {
-        scanf("%s", new_telefone_servidor);
-        valor_campo = new_telefone_servidor;
-    }
-    else if(strcmp(campo, "nomeServidor") == 0)
-    {
-        scanf(" %200[^\n\r]s", new_nome_servidor);
-        valor_campo = new_nome_servidor;
-    }
-    else if(strcmp(campo, "cargoServidor") == 0)
-    {
-        scanf(" %500[^\n\r]s", new_cargo_servidor);
-        valor_campo = new_cargo_servidor;
-    }
+    double salario_servidor = 0.0;
+    valor_campo = get_user_clean_input(campo);
     if(file_name != NULL)
     {
         if(access(file_name, F_OK) == 0)
@@ -3259,8 +3161,13 @@ int edit_by_cargo(const char *file_name, const char *cargo, const char *campo)
                                         arq = fopen(file_name, "r+b");
                                         header.status = '0';
                                         fwrite(&header.status, sizeof(header.status), 1, arq);
-                                        fseek(arq, current_register + reg_size + 1, SEEK_SET);
+                                        fseek(arq, current_register + reg_size + sizeof(int) + sizeof(char), SEEK_SET); // Pula o registro
                                     }
+                                }
+                                else if(removido_token == '*')
+                                {
+                                    fread(&reg_size, sizeof(int), 1, arq);
+                                    fseek(arq, reg_size, SEEK_CUR);
                                 }
                                 register_bytes_readed = 0;
                                 cargo_servidor_size = 0;
@@ -3293,6 +3200,7 @@ int edit_by_cargo(const char *file_name, const char *cargo, const char *campo)
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    free(valor_campo);
     return r;
 }
 
@@ -3328,14 +3236,17 @@ void edit_register(const char *file_name, const char *campo, void *valor_campo, 
         else if(strcmp(campo, "telefoneServidor") == 0)
         {
             fseek(file, 12, SEEK_CUR);
-            strcpy(telefone_servidor, valor_campo);
-            if(strcmp(telefone_servidor, "NULO") == 0)
+            if(strcmp(valor_campo, "NULO") == 0)
             {
                 telefone_servidor[0] = '\0';
                 for(int i = 1; i < sizeof(telefone_servidor); i++)
                 {
                     telefone_servidor[i] = '@';
                 }
+            }
+            else
+            {
+                strcpy(telefone_servidor, valor_campo);
             }
             fwrite(&telefone_servidor, (sizeof(telefone_servidor) - 1), 1, file);
         }
@@ -3487,7 +3398,7 @@ void edit_register(const char *file_name, const char *campo, void *valor_campo, 
                     }
                     else if(strlen(cargo_servidor) < strlen(var_value))
                     {
-                        reg_empty_space = reg_empty_space + strlen(nome_servidor) - strlen(var_value); // Calcula o espaco vazio restante, se ocorrer a edicao
+                        reg_empty_space = reg_empty_space + strlen(cargo_servidor) - strlen(var_value); // Calcula o espaco vazio restante, se ocorrer a edicao
                         if(reg_empty_space < 0) // Se nao ha espaco no registro para inserir
                         {
                             r = -2;
@@ -3575,4 +3486,78 @@ int binary_search(FILE_LIST *l, int list_size)
     {
 
     }
+}
+
+void *get_user_clean_input(const char *campo)
+{
+    void *valor_campo = NULL;
+    int new_id = 0;
+    char new_salario_string[300], new_telefone_servidor[15], new_nome_servidor[200], new_cargo_servidor[500];
+    double new_salario_servidor = 0.0;
+    memset(new_salario_string, 0x00, sizeof(new_salario_string));
+    memset(new_telefone_servidor, 0x00, sizeof(new_telefone_servidor));
+    memset(new_nome_servidor, 0x00, sizeof(new_nome_servidor));
+    memset(new_cargo_servidor, 0x00, sizeof(new_cargo_servidor));
+    if(campo != NULL)
+    {
+        if(strcmp(campo, "idServidor") == 0)
+        {
+            scanf("%d", &new_id);
+            valor_campo = malloc(sizeof(int));
+            *((int *) valor_campo) = new_id;
+        }
+        else if(strcmp(campo, "salarioServidor") == 0)
+        {
+            scanf("%s", new_salario_string);
+            if(strcmp(new_salario_string, "NULO") == 0)
+            {
+                new_salario_servidor = -1.0;
+            }
+            else
+            {
+                new_salario_servidor = strtod(new_salario_string, NULL);
+            }
+            valor_campo = malloc(sizeof(double));
+            *((double *) valor_campo) = new_salario_servidor;
+        }
+        else if(strcmp(campo, "telefoneServidor") == 0)
+        {
+            scanf("%s", new_telefone_servidor);
+            if(new_telefone_servidor[0] != 'N' && new_telefone_servidor[0] != 'n')
+            {
+                sscanf(new_telefone_servidor, " %c%14[^\"]", &new_telefone_servidor[0], new_telefone_servidor); // Retira as aspas
+            }
+            valor_campo = malloc(strlen(new_telefone_servidor) + 1);
+            strcpy(valor_campo, new_telefone_servidor);
+        }
+        else if(strcmp(campo, "nomeServidor") == 0)
+        {
+            scanf(" %200[^\n\r]", new_nome_servidor);
+            if(new_nome_servidor[0] != 'N' && new_nome_servidor[0] != 'n')
+            {
+                sscanf(new_nome_servidor, " %c%200[^\"]", &new_nome_servidor[0], new_nome_servidor); // Retira as aspas
+            }
+            if(strcmp(new_nome_servidor, "NULO") == 0)
+            {
+                memset(new_nome_servidor, 0x00, sizeof(new_nome_servidor));
+            }
+            valor_campo = malloc(strlen(new_nome_servidor) + 1);
+            strcpy(valor_campo, new_nome_servidor);
+        }
+        else if(strcmp(campo, "cargoServidor") == 0)
+        {
+            scanf(" %500[^\n\r]", new_cargo_servidor);
+            if(new_cargo_servidor[0] != 'N' && new_cargo_servidor[0] != 'n')
+            {
+                sscanf(new_cargo_servidor, " %c%500[^\"]", &new_cargo_servidor[0], new_cargo_servidor); // Retira as aspas
+            }
+            if(strcmp(new_cargo_servidor, "NULO") == 0)
+            {
+                memset(new_cargo_servidor, 0x00, sizeof(new_cargo_servidor));
+            }
+            valor_campo = malloc(strlen(new_cargo_servidor) + 1);
+            strcpy(valor_campo, new_cargo_servidor);
+        }
+    }
+    return valor_campo;
 }
