@@ -159,7 +159,7 @@ int main(int argc, char const *argv[])
             }
             if(r != -1)
             {
-                binarioNaTela2(data_file_name);
+                // binarioNaTela2(data_file_name);
             }
             break;
 
@@ -180,7 +180,7 @@ int main(int argc, char const *argv[])
                 }
                 else if(strcmp(query_field, "salarioServidor") == 0)
                 {
-                    scanf("%s", &salario);
+                    scanf("%s", salario);
                     if(strcmp(salario, "NULO") == 0)
                     {
                         salarioServidor = -1.0;
@@ -225,7 +225,7 @@ int main(int argc, char const *argv[])
             }
             if(r != -1)
             {
-                binarioNaTela2(data_file_name);
+                // binarioNaTela2(data_file_name);
             }
             break;
 
