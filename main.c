@@ -68,6 +68,7 @@ int main(int argc, char const *argv[])
                 memset(telefone, 0x00, sizeof(telefone));
                 memset(nome, 0x00, sizeof(nome));
                 memset(cargo, 0x00, sizeof(cargo));
+                memset(salario, 0x00, sizeof(salario));
                 scanf("%s", query_field);
                 if(strcmp(query_field, "idServidor") == 0)
                 {
@@ -76,7 +77,7 @@ int main(int argc, char const *argv[])
                 }
                 else if(strcmp(query_field, "salarioServidor") == 0)
                 {
-                    scan_quote_string(salario);
+                    scanf("%s", salario);
                     if(strcmp(salario, "NULO") == 0)
                     {
                         salarioServidor = -1.0;
@@ -159,7 +160,7 @@ int main(int argc, char const *argv[])
             }
             if(r != -1)
             {
-                // binarioNaTela2(data_file_name);
+                binarioNaTela2(data_file_name);
             }
             break;
 
@@ -171,6 +172,7 @@ int main(int argc, char const *argv[])
                 memset(telefone, 0x00, sizeof(telefone));
                 memset(nome, 0x00, sizeof(nome));
                 memset(cargo, 0x00, sizeof(cargo));
+                memset(salario, 0x00, sizeof(salario));
                 scanf("%s", query_field);
                 if(strcmp(query_field, "idServidor") == 0)
                 {
@@ -225,7 +227,7 @@ int main(int argc, char const *argv[])
             }
             if(r != -1)
             {
-                // binarioNaTela2(data_file_name);
+                binarioNaTela2(data_file_name);
             }
             break;
 
