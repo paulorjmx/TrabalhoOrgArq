@@ -3571,7 +3571,7 @@ void *get_user_clean_input(const char *campo)
     return valor_campo;
 }
 
-void sort_data_file(const char *file_name, const char *sorted_file_name)
+int sort_data_file(const char *file_name, const char *sorted_file_name)
 {
     FILE_HEADER header;
     FILE *arq = NULL;
@@ -3583,7 +3583,8 @@ void sort_data_file(const char *file_name, const char *sorted_file_name)
     // var_field_size eh utilizada em um loop para terminar de ler todo o registro
     // ptr eh utilizado como ponteiro para a estrutura in_data
     // file_size eh utilizada para verificar se ha algum registro no arquivo de dados nao ordenado
-    int ptr = 0;
+    // A variavel 'r' eh o retorno da funcao
+    int ptr = 0, r = -1;
     int reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, nome_servidor_size = 0, cargo_servidor_size = 0, var_field_size = 0, disk_pages = 0;
     long int encadeamento_lista = -1, file_size = 0;
     if(file_name != NULL)
@@ -3715,7 +3716,7 @@ void sort_data_file(const char *file_name, const char *sorted_file_name)
                     {
                         // Grava os registros, ordenados, no arquivo 'sorted_file_name'
                         write_sorted_file(sorted_file_name, &header, in_data, ptr);
-                        printf("Número de páginas de disco acessadas: %d\n", disk_pages);
+                        r = 0;
                     }
                 }
                 else
@@ -3734,6 +3735,7 @@ void sort_data_file(const char *file_name, const char *sorted_file_name)
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    return r;
 }
 
 int compare_data_register(const void *a, const void *b)
@@ -3821,4 +3823,26 @@ void write_sorted_file(const char *file_name, FILE_HEADER *header, DATA_REGISTER
             printf("Falha no processamento do arquivo.\n");
         }
     }
+}
+
+int merging_data_file(const char *file_name1, const char *file_name2, const char *merged_file_name)
+{
+    int r = -1;
+    FILE *arq1 = NULL, *arq2 = NULL;
+    if(file_name1 != NULL)
+    {
+        if(file_name2 != NULL)
+        {
+
+        }
+        else
+        {
+            printf("Falha no processamento do arquivo.\n");
+        }
+    }
+    else
+    {
+        printf("Falha no processamento do arquivo.\n");
+    }
+    return r;
 }
