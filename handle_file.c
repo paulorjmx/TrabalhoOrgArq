@@ -3806,7 +3806,7 @@ void write_sorted_file(const char *file_name, FILE_HEADER *header, DATA_REGISTER
                     {
                         fwrite(&(data[i].cargo_size), sizeof(int), 1, arq);
                         fwrite(&(header->tag_campo5), sizeof(char), 1, arq);
-                        fwrite(&(data[i].cargo), (strlen(data[i].cargo) + 1), 1, arq);
+                        fwrite(&(data[i].cargo), (data[i].cargo_size - 1), 1, arq);
                     }
                 }
                 fclose(arq);
