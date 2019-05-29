@@ -40,6 +40,7 @@ typedef struct file_list_t
 
 
 void write_file_header(const char *file_name, FILE_HEADER *header); // Funcao que escreve o arquivo de cabecalho no arquivo de dados binario
+void read_file_header(FILE *fp, FILE_HEADER *header); // Funcao que le o registro de cabecalho do arquivo
 void init_file_header(FILE_HEADER *header, char *desc); // Funcao que inicializa a estrutura de dados FILE_HEADER
 void print_file_header(FILE_HEADER header); // Funcao utilidade que mostra na tela todos os campos do registro de cabecalho
 void init_file_list(FILE_LIST *l, int list_size); // Funcao utilizada para inicializar a lista de registros removidos
@@ -49,6 +50,8 @@ void edit_register(const char *file_name, const char *campo, void *valor_campo, 
 void *get_user_clean_input(const char *campo); // Funcao utilizada para entrada do usuario removendo aspas
 int compare_data_register(const void *a, const void *b); // Funcao de comparacao utilizada pelo qsort
 void write_sorted_file(const char *file_name, FILE_HEADER *header, DATA_REGISTER *data, unsigned int n_items); // Funcao utilizada para escrever registros em um arquivo de dados.
+void read_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data); // Funcao utilizada para ler um registro para onde 'fp' esta 'apontando'
+void write_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data);
 
 #define SIZE_FILE_HEADER 214 // Tamanho do cabecalho
 #define CLUSTER_SIZE 32000 // Tamanho do cluster em bytes
@@ -3825,24 +3828,323 @@ void write_sorted_file(const char *file_name, FILE_HEADER *header, DATA_REGISTER
     }
 }
 
+void read_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data)
+{
+    char bloat = '@', tag_campo = '-';
+    int register_bytes_readed = 0, var_field_size = 0;
+    if(fp != NULL)
+    {
+        fread(&(data->tamanho_registro), sizeof(int), 1, fp);
+        fread(&(data->encadeamento_lista), sizeof(long int), 1, fp);
+        register_bytes_readed += sizeof(long int);
+        fread(&(data->id), sizeof(int), 1, fp);
+        register_bytes_readed += sizeof(int);
+        fread(&(data->salario), sizeof(double), 1, fp);
+        register_bytes_readed += sizeof(double);
+        fread(&(data->telefone), (sizeof(data->telefone) - 1), 1, fp);
+        register_bytes_readed += sizeof(data->telefone) - 1;
+        data->nome_size = 0;
+        data->cargo_size = 0;
+        while(register_bytes_readed < data->tamanho_registro)
+        {
+            fread(&bloat, sizeof(char), 1, fp);
+            if(bloat == '@')
+            {
+                register_bytes_readed++;
+            }
+            else
+            {
+                fseek(fp, -1, SEEK_CUR);
+                fread(&var_field_size, sizeof(int), 1, fp);
+                register_bytes_readed += sizeof(int);
+                fread(&tag_campo, sizeof(char), 1, fp);
+                register_bytes_readed += sizeof(char);
+                if(tag_campo == header->tag_campo4)
+                {
+                    data->nome_size = var_field_size;
+                    fread(&(data->nome), (data->nome_size - 1) , 1, fp);
+                    register_bytes_readed += var_field_size;
+                }
+                else if(tag_campo == header->tag_campo5)
+                {
+                    data->cargo_size = var_field_size;
+                    fread(&(data->cargo), (data->cargo_size - 1) , 1, fp);
+                    register_bytes_readed += var_field_size;
+                }
+            }
+        }
+    }
+}
+
+void write_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data)
+{
+    char removido_token = '-';
+    if(fp != NULL)
+    {
+        fwrite(&removido_token, sizeof(char), 1, fp);
+        fwrite(&(data->tamanho_registro), sizeof(int), 1, fp);
+        fwrite(&(data->encadeamento_lista), sizeof(long int), 1, fp);
+        fwrite(&(data->id), sizeof(int), 1, fp);
+        fwrite(&(data->salario), sizeof(double), 1, fp);
+        fwrite(&(data->telefone), (sizeof(data->telefone) - 1), 1, fp);
+        if(data->nome_size > 0)
+        {
+            fwrite((&data->nome_size), sizeof(int), 1, fp);
+            fwrite(&(header->tag_campo4), sizeof(char), 1, fp);
+            fwrite(&(data->nome), (data->nome_size - 1), 1, fp);
+        }
+        if(data->cargo_size > 0)
+        {
+            fwrite((&data->cargo_size), sizeof(int), 1, fp);
+            fwrite(&(header->tag_campo5), sizeof(char), 1, fp);
+            fwrite(&(data->cargo), (data->cargo_size - 1), 1, fp);
+        }
+    }
+}
+
 int merging_data_file(const char *file_name1, const char *file_name2, const char *merged_file_name)
 {
-    int r = -1;
-    FILE *arq1 = NULL, *arq2 = NULL;
-    if(file_name1 != NULL)
+    char removido_token1 = '-', removido_token2 = '-';
+    const char bloat = '@';
+    FILE *arq1 = NULL, *arq2 = NULL, *out_arq = NULL;
+    int r = -1, cluster_size_free = CLUSTER_SIZE, reg_size = 0;
+    long int last_registry_inserted = 0, ptr_file1 = 0, ptr_file2 = 0;
+    FILE_HEADER header1, header2;
+    DATA_REGISTER in_data1, in_data2;
+    arq1 = fopen(file_name1, "r+b");
+    arq2 = fopen(file_name2, "r+b");
+    if(arq1 != NULL && arq2 != NULL)
     {
-        if(file_name2 != NULL)
+        read_file_header(arq1, &header1);
+        read_file_header(arq2, &header2);
+        if(header1.status == '1' && header2.status == '1')
+        {
+            rewind(arq1);
+            rewind(arq2);
+            header1.status = '0';
+            header2.status = '0';
+            fwrite(&header1.status, sizeof(header1.status), 1, arq1);
+            fwrite(&header2.status, sizeof(header2.status), 1, arq2);
+            header1.topo_lista = -1;
+            write_file_header(merged_file_name, &header1);
+            fseek(arq1, CLUSTER_SIZE, SEEK_SET);
+            fseek(arq2, CLUSTER_SIZE, SEEK_SET);
+            out_arq = fopen(merged_file_name, "r+b");
+            fseek(out_arq, CLUSTER_SIZE, SEEK_SET);
+            // Insercao no arquivo novo realizando merging
+            while(1)
+            {
+                last_registry_inserted = ftell(out_arq); // Guarda o endereco do ultimo registro inserido no novo arquivo
+                ptr_file1 = ftell(arq1); // 'Ponteiro' para o ultimo registro lido do arquivo 1
+                ptr_file2 = ftell(arq2); // 'Ponteiro' para o ultimo registro lido do arquivo 2
+                fread(&removido_token1, sizeof(char), 1, arq1);
+                fread(&removido_token2, sizeof(char), 1, arq2);
+                if(feof(arq1) != 0 || feof(arq2) != 0)
+                {
+                    break;
+                }
+                else
+                {
+                    if(removido_token1 == '-' && removido_token2 == '-')
+                    {
+                        read_register(arq1, &header1, &in_data1);
+                        read_register(arq2, &header2, &in_data2);
+                        in_data1.encadeamento_lista = -1;
+                        in_data2.encadeamento_lista = -1;
+                        if(in_data1.id < in_data2.id)
+                        {
+                            if(cluster_size_free - (in_data1.tamanho_registro + 5) < 0)
+                            {
+                                for(int i = 0; i < cluster_size_free; i++)
+                                {
+                                    fwrite(&bloat, sizeof(char), 1, out_arq);
+                                }
+                                fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
+                                fread(&reg_size, sizeof(int), 1, out_arq);
+                                reg_size += cluster_size_free;
+                                fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
+                                fwrite(&reg_size, sizeof(int), 1, out_arq);
+                                fseek(out_arq, 0, SEEK_END); // Vai para o fim do arquivo
+                                cluster_size_free = CLUSTER_SIZE; // Comeca uma nova pagina de disco
+                            }
+                            cluster_size_free -= (in_data1.tamanho_registro + 5);
+                            write_register(out_arq, &header1, &in_data1);
+                            fseek(arq2, ptr_file2, SEEK_SET); // Volta o ponteiro para o comeco do registro
+                        }
+                        else if(in_data1.id > in_data2.id)
+                        {
+                            if(cluster_size_free - (in_data2.tamanho_registro + 5) < 0)
+                            {
+                                for(int i = 0; i < cluster_size_free; i++)
+                                {
+                                    fwrite(&bloat, sizeof(char), 1, out_arq);
+                                }
+                                fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
+                                fread(&reg_size, sizeof(int), 1, out_arq);
+                                reg_size += cluster_size_free;
+                                fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
+                                fwrite(&reg_size, sizeof(int), 1, out_arq);
+                                fseek(out_arq, 0, SEEK_END); // Vai para o fim do arquivo
+                                cluster_size_free = CLUSTER_SIZE; // Comeca uma nova pagina de disco
+                            }
+                            cluster_size_free -= (in_data2.tamanho_registro + 5);
+                            write_register(out_arq, &header1, &in_data2);
+                            fseek(arq1, ptr_file1, SEEK_SET); // Volta o ponteiro para o comeco do registro
+                        }
+                        else
+                        {
+                            // Armazena o registro do arquivo 1
+                            if(cluster_size_free - (in_data1.tamanho_registro + 5) < 0)
+                            {
+                                for(int i = 0; i < cluster_size_free; i++)
+                                {
+                                    fwrite(&bloat, sizeof(char), 1, out_arq);
+                                }
+                                fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
+                                fread(&reg_size, sizeof(int), 1, out_arq);
+                                reg_size += cluster_size_free;
+                                fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
+                                fwrite(&reg_size, sizeof(int), 1, out_arq);
+                                fseek(out_arq, 0, SEEK_END); // Vai para o fim do arquivo
+                                cluster_size_free = CLUSTER_SIZE; // Comeca uma nova pagina de disco
+                            }
+                            cluster_size_free -= (in_data1.tamanho_registro + 5);
+                            write_register(out_arq, &header1, &in_data1);
+                        }
+                    }
+                    else if(removido_token1 == '-') // Somente o arquivo 1 tem o registro nao removido
+                    {
+                        read_register(arq1, &header1, &in_data1); // Le o registro do arquivo 1
+                        in_data2.encadeamento_lista = -1;
+                        if((cluster_size_free - (in_data1.tamanho_registro + 5)) < 0) // Se nao ha espaco na pagina de disco para o novo registro
+                        {
+                            for(int i = 0; i < cluster_size_free; i++)
+                            {
+                                fwrite(&bloat, sizeof(char), 1, out_arq);
+                            }
+                            fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
+                            fread(&reg_size, sizeof(int), 1, out_arq);
+                            reg_size += cluster_size_free;
+                            fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
+                            fwrite(&reg_size, sizeof(int), 1, out_arq);
+                            fseek(out_arq, 0, SEEK_END); // Vai para o fim do arquivo
+                            cluster_size_free = CLUSTER_SIZE; // Comeca uma nova pagina de disco
+                        }
+                        cluster_size_free -= (in_data1.tamanho_registro + 5); // Diminui o tamanho livre da pagina de disco
+                        write_register(out_arq, &header1, &in_data1); // Escreve o registro no arquivo novo
+
+                        fread(&reg_size, sizeof(int), 1, arq2); // Pula o registro removido do arquivo 2
+                        fseek(arq2, reg_size, SEEK_CUR);
+                    }
+                    else if(removido_token2 == '-') // Somente o arquivo 2 tem o registro nao removido
+                    {
+                        read_register(arq2, &header2, &in_data2); // Le o registro do arquivo 2
+                        in_data2.encadeamento_lista = -1;
+                        if((cluster_size_free - (in_data2.tamanho_registro + 5)) < 0) // Se nao ha espaco na pagina de disco para o novo registro
+                        {
+                            for(int i = 0; i < cluster_size_free; i++)
+                            {
+                                fwrite(&bloat, sizeof(char), 1, out_arq);
+                            }
+                            fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
+                            fread(&reg_size, sizeof(int), 1, out_arq);
+                            reg_size += cluster_size_free;
+                            fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
+                            fwrite(&reg_size, sizeof(int), 1, out_arq);
+                            fseek(out_arq, 0, SEEK_END); // Vai para o fim do arquivo
+                            cluster_size_free = CLUSTER_SIZE; // Comeca uma nova pagina de disco
+                        }
+                        cluster_size_free -= (in_data2.tamanho_registro + 5); // Diminui o tamanho livre da pagina de disco
+                        write_register(out_arq, &header1, &in_data2); // Escreve o registro no arquivo novo
+
+                        fread(&reg_size, sizeof(int), 1, arq1); // Pula o registro removido do arquivo 1
+                        fseek(arq1, reg_size, SEEK_CUR);
+                    }
+                    else // Os dois arquivos tem os registros removidos
+                    {
+                        fread(&reg_size, sizeof(int), 1, arq1);
+                        fseek(arq1, reg_size, SEEK_CUR); // Pula o registro do arquivo 1
+                        fread(&reg_size, sizeof(int), 1, arq2);
+                        fseek(arq2, reg_size, SEEK_CUR); // Pula o registro do arquivo 2
+                    }
+                }
+            }
+            rewind(arq1);
+            rewind(arq2);
+            rewind(out_arq);
+            header1.status = '1';
+            header2.status = '1';
+            fwrite(&header1.status, sizeof(header1.status), 1, arq1);
+            fwrite(&header2.status, sizeof(header2.status), 1, arq2);
+            fwrite(&header1.status, sizeof(header1.status), 1, out_arq);
+        }
+        else if(header1.status == '1')
+        {
+            rewind(arq1);
+            header1.status = '0';
+            fwrite(&header1.status, sizeof(header1.status), 1, arq1);
+            fseek(arq1, CLUSTER_SIZE, SEEK_SET);
+            write_file_header(merged_file_name, &header1);
+            out_arq = fopen(merged_file_name, "r+b");
+            // fseek(out_arq, CLUSTER_SIZE, SEEK_SET);
+            // while(1)
+            // {
+            //     last_registry_inserted = ftell(out_arq);
+            //     fread(&removido_token1, sizeof(char), 1, arq1);
+            //     if(feof(arq1) != 0)
+            //     {
+            //         break;
+            //     }
+            //     else
+            //     {
+            //         read_register(arq1, &header1, &in_data1);
+            //         if((cluster_size_free - (in_data1.tamanho_registro + 5)) < 0)
+            //         {
+            //
+            //         }
+            //
+            //     }
+            // }
+            rewind(arq1);
+            header1.status = '1';
+            fwrite(&header1.status, sizeof(header1.status), 1, arq1);
+            fwrite(&header1.status, sizeof(header1.status), 1, out_arq);
+        }
+        else if(header2.status == '1')
         {
 
         }
         else
         {
-            printf("Falha no processamento do arquivo.\n");
+            printf("Falha no processamento do arquivo\n");
         }
+        fclose(arq1);
+        fclose(arq2);
+        fclose(out_arq);
     }
     else
     {
         printf("Falha no processamento do arquivo.\n");
     }
     return r;
+}
+
+void read_file_header(FILE *fp, FILE_HEADER *header)
+{
+    if(fp != NULL)
+    {
+        rewind(fp);
+        fread(&header->status, sizeof(header->status), 1, fp);
+        fread(&header->topo_lista, sizeof(header->topo_lista), 1, fp);
+        fread(&header->tag_campo1, sizeof(header->tag_campo1), 1, fp);
+        fread(&header->desc_campo1, sizeof(header->desc_campo1), 1, fp);
+        fread(&header->tag_campo2, sizeof(header->tag_campo2), 1, fp);
+        fread(&header->desc_campo2, sizeof(header->desc_campo2), 1, fp);
+        fread(&header->tag_campo3, sizeof(header->tag_campo3),1, fp);
+        fread(&header->desc_campo3, sizeof(header->desc_campo3), 1, fp);
+        fread(&header->tag_campo4, sizeof(header->tag_campo4),1, fp);
+        fread(&header->desc_campo4, sizeof(header->desc_campo4), 1, fp);
+        fread(&header->tag_campo5, sizeof(header->tag_campo5), 1, fp);
+        fread(&header->desc_campo5, sizeof(header->desc_campo5), 1, fp);
+    }
 }
