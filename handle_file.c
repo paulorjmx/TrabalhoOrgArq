@@ -15,6 +15,7 @@
 #include <limits.h>
 #include <math.h>
 
+// Estrutura de dados utilizada para guardar o registros lidos de arquivos de dados
 typedef struct data_register_t
 {
     char nome[150], cargo[120], telefone[15];
@@ -46,8 +47,8 @@ int binary_search(FILE_LIST *l, int list_size); // Funcao utilizada para buscar 
 void insert_full_disk_page(FILE *file, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo); // Funcao utilizada para inserir o registro em uma pagina de disco
 void edit_register(const char *file_name, const char *campo, void *valor_campo, long int comeco_registro, char tag_campo4, char tag_campo5); // Funcao utilizada para atualizar um campo no registro que tem comeco em comeco_registro
 void *get_user_clean_input(const char *campo); // Funcao utilizada para entrada do usuario removendo aspas
-int compare_data_register(const void *a, const void *b);
-void write_sorted_file(const char *file_name, FILE_HEADER *header, DATA_REGISTER *data, unsigned int n_items);
+int compare_data_register(const void *a, const void *b); // Funcao de comparacao utilizada pelo qsort
+void write_sorted_file(const char *file_name, FILE_HEADER *header, DATA_REGISTER *data, unsigned int n_items); // Funcao utilizada para escrever registros em um arquivo de dados.
 
 #define SIZE_FILE_HEADER 214 // Tamanho do cabecalho
 #define CLUSTER_SIZE 32000 // Tamanho do cluster em bytes
@@ -3570,17 +3571,18 @@ void *get_user_clean_input(const char *campo)
     return valor_campo;
 }
 
-void sort_data_file(const char *file_name)
+void sort_data_file(const char *file_name, const char *sorted_file_name)
 {
-    /* As variaveis abaixo seguem o mesmo principio do procedimento de criar o arquivo binario, exceto que, neste caso,
-      sao para recuperar os campos do registro do arquivo de dados binario */
     FILE_HEADER header;
     FILE *arq = NULL;
+    // in_data eh onde estao os registros que serao gravados no arquivo ordenada
     DATA_REGISTER in_data[6000];
     // A variavel flag_r eh 0x00 se nao ha algum registro no arquivo de dados, ou 0x01 caso contrario.
-    char telefone_servidor[15], nome_servidor[500], cargo_servidor[200], removido_token = '-', tag_campo = '0', bloat = '@', flag_r = 0x01;
+    char removido_token = '-', tag_campo = '0', bloat = '@', flag_r = 0x01;
     // disk_pages eh utilizada para contar paginas de disco acessadas.
     // var_field_size eh utilizada em um loop para terminar de ler todo o registro
+    // ptr eh utilizado como ponteiro para a estrutura in_data
+    // file_size eh utilizada para verificar se ha algum registro no arquivo de dados nao ordenado
     int ptr = 0;
     int reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, nome_servidor_size = 0, cargo_servidor_size = 0, var_field_size = 0, disk_pages = 0;
     long int encadeamento_lista = -1, file_size = 0;
@@ -3594,6 +3596,7 @@ void sort_data_file(const char *file_name)
                 fread(&header.status, sizeof(header.status), 1, arq);
                 if(header.status == '1')
                 {
+                    // Le o cabecalho do arquivo de dados nao ordenado
                     fread(&header.topo_lista, sizeof(header.topo_lista), 1, arq);
                     fread(&header.tag_campo1, sizeof(header.tag_campo1), 1, arq);
                     fread(&header.desc_campo1, sizeof(header.desc_campo1), 1, arq);
@@ -3624,7 +3627,7 @@ void sort_data_file(const char *file_name)
                         }
                         else
                         {
-                            while(total_bytes_readed < CLUSTER_SIZE)
+                            while(total_bytes_readed < CLUSTER_SIZE) // Enquanto houver registros na pagina de disco
                             {
                                 fread(&removido_token, sizeof(char), 1, arq);
                                 total_bytes_readed += sizeof(char);
@@ -3645,7 +3648,7 @@ void sort_data_file(const char *file_name)
                                     fread(&(in_data[ptr].salario), sizeof(double), 1, arq);
                                     register_bytes_readed += sizeof(double);
                                     fread(&(in_data[ptr].telefone), (sizeof(in_data[ptr].telefone) - 1), 1, arq);
-                                    register_bytes_readed += sizeof(telefone_servidor) - 1;
+                                    register_bytes_readed += sizeof(in_data[ptr].telefone) - 1;
                                     in_data[ptr].nome_size = 0;
                                     in_data[ptr].cargo_size = 0;
                                     while(register_bytes_readed < reg_size) // Loop utilizado para ler o resto do registro
@@ -3682,7 +3685,7 @@ void sort_data_file(const char *file_name)
                                             }
                                         }
                                     }
-                                    ptr++;
+                                    ptr++; // Avanca o ponteiro para apontar para a proxima posicao livre
                                     total_bytes_readed += reg_size;
                                     register_bytes_readed = 0;
                                     cargo_servidor_size = 0;
@@ -3699,6 +3702,7 @@ void sort_data_file(const char *file_name)
                             disk_pages++;
                         }
                     }
+                    // Ordena os registros
                     qsort(in_data, ptr, sizeof(DATA_REGISTER), compare_data_register);
                     fseek(arq, 0, SEEK_SET);
                     header.status = '1';
@@ -3709,7 +3713,8 @@ void sort_data_file(const char *file_name)
                     }
                     else
                     {
-                        write_sorted_file("sorted_file.bin", &header, in_data, ptr);
+                        // Grava os registros, ordenados, no arquivo 'sorted_file_name'
+                        write_sorted_file(sorted_file_name, &header, in_data, ptr);
                         printf("Número de páginas de disco acessadas: %d\n", disk_pages);
                     }
                 }
@@ -3739,20 +3744,25 @@ int compare_data_register(const void *a, const void *b)
 void write_sorted_file(const char *file_name, FILE_HEADER *header, DATA_REGISTER *data, unsigned int n_items)
 {
     FILE *arq = NULL;
-    char removido_token = '-', bloat = '@';
+    // 'removido_token' e 'bloat' sao constantes utilizadas para escrever no arquivo de dados ordenado
+    const char removido_token = '-', bloat = '@';
+    // 'update_reg_size' eh utilizado para armazenar o tamanho do ultimo registro da pagina de disco
+    // 'cluster_size_free' eh utilizado para saber quanto espaco livre tem na pagina de disco.
+    // 'reg_size' eh utilizado para calcular o tamanho do registro a ser armazenado
     int cluster_size_free = CLUSTER_SIZE, reg_size = 0, update_reg_size = 0;
+    // 'last_registry_inserted' eh um 'ponteiro' para o ultimo registro armazenado no arquivo de dados ordenado
     long int last_registry_inserted = 0;
     if(file_name != NULL)
     {
         if(access(file_name, F_OK) != 0) // Checa se o arquivo nao existe
         {
             header->topo_lista = -1;
-            write_file_header(file_name, header);
+            write_file_header(file_name, header); // Escreve o cabecalho no arquivo de dados ordenado
             arq = fopen(file_name, "r+b");
             fseek(arq, CLUSTER_SIZE, SEEK_SET);
             if(arq != NULL)
             {
-                for(int i = 0; i < n_items; i++)
+                for(int i = 0; i < n_items; i++) // Loop para escrever os registros no arquivo de dados ordenado
                 {
                     reg_size = 34;
                     if(data[i].nome_size > 0)
@@ -3763,24 +3773,23 @@ void write_sorted_file(const char *file_name, FILE_HEADER *header, DATA_REGISTER
                     {
                         reg_size += 4 + data[i].cargo_size;
                     }
-                    if((cluster_size_free - (reg_size + 5)) < 0)
+                    if((cluster_size_free - (reg_size + 5)) < 0) // Se o registro nao cabe na pagina de disco
                     {
-                        printf("FREE_CLUSTER:%d\n", cluster_size_free);
-                        printf("REG_SIZE:%d\n", reg_size+5);
-                        for(int j = 0; j < cluster_size_free; j++)
+                        for(int j = 0; j < cluster_size_free; j++) // Preenche com lixo o restante da pagina de disco
                         {
                             fwrite(&bloat, sizeof(char), 1, arq);
                         }
+                        fseek(arq, (last_registry_inserted + 1), SEEK_SET); // Vai ate o ultimo registro inserido
+                        fread(&update_reg_size, sizeof(int), 1, arq); // Le o tamanho deste registro
+                        update_reg_size += cluster_size_free; // Atualiza o tamanho do registro
                         fseek(arq, (last_registry_inserted + 1), SEEK_SET);
-                        fread(&update_reg_size, sizeof(int), 1, arq);
-                        update_reg_size += cluster_size_free;
-                        fseek(arq, (last_registry_inserted + 1), SEEK_SET);
-                        fwrite(&update_reg_size, sizeof(int), 1, arq);
-                        cluster_size_free = CLUSTER_SIZE;
+                        fwrite(&update_reg_size, sizeof(int), 1, arq); // escreve o tamanho do registro atualizado
+                        cluster_size_free = CLUSTER_SIZE; // Comeca uma nova pagina de disco
                         fseek(arq, 0, SEEK_END);
                     }
-                    last_registry_inserted = ftell(arq);
-                    cluster_size_free -= (reg_size + 5);
+                    last_registry_inserted = ftell(arq); // Pega o byte offset do ultimo registro inserido
+                    cluster_size_free -= (reg_size + 5); // Diminui o tamanho do espco livre que tem na pag. de disco
+                    // Escreve os campos dos registros
                     fwrite(&removido_token, sizeof(char), 1, arq);
                     fwrite(&reg_size, sizeof(int), 1, arq);
                     fwrite(&(data[i].encadeamento_lista), sizeof(long int), 1, arq);
@@ -3791,7 +3800,7 @@ void write_sorted_file(const char *file_name, FILE_HEADER *header, DATA_REGISTER
                     {
                         fwrite(&(data[i].nome_size), sizeof(int), 1, arq);
                         fwrite(&(header->tag_campo4), sizeof(char), 1, arq);
-                        fwrite(&(data[i].nome), data[i].nome_size - 1, 1, arq);
+                        fwrite(&(data[i].nome), (data[i].nome_size - 1), 1, arq);
                     }
                     if(data[i].cargo_size > 0)
                     {
