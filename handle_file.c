@@ -3913,6 +3913,12 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
     DATA_REGISTER in_data1, in_data2;
     arq1 = fopen(file_name1, "r+b");
     arq2 = fopen(file_name2, "r+b");
+    fseek(arq1, 0, SEEK_END);
+    fseek(arq2, 0, SEEK_END);
+    long int f1_size = ftell(arq1);
+    long int f2_size = ftell(arq2);
+    rewind(arq1);
+    rewind(arq2);
     if(arq1 != NULL && arq2 != NULL)
     {
         read_file_header(arq1, &header1);
@@ -3935,12 +3941,14 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
             while(1)
             {
                 last_registry_inserted = ftell(out_arq); // Guarda o endereco do ultimo registro inserido no novo arquivo
-                ptr_file1 = ftell(arq1); // 'Ponteiro' para o ultimo registro lido do arquivo 1
-                ptr_file2 = ftell(arq2); // 'Ponteiro' para o ultimo registro lido do arquivo 2
+                ptr_file1 = ftell(arq1); // 'Ponteiro' para o comeco do ultimo registro lido do arquivo 1
+                ptr_file2 = ftell(arq2); // 'Ponteiro' para o comeco do ultimo registro lido do arquivo 2
                 fread(&removido_token1, sizeof(char), 1, arq1);
                 fread(&removido_token2, sizeof(char), 1, arq2);
-                if(feof(arq1) != 0 || feof(arq2) != 0)
+                if(feof(arq1) != 0 || feof(arq2) != 0) // Se um dos dois arquivos chegou ao fim
                 {
+                    printf("FILE 1 SIZE: %ld, PTR1: %ld\n", f1_size, ptr_file1);
+                    printf("FILE 2 SIZE: %ld, PTR2: %ld\n", f2_size, ptr_file2);
                     break;
                 }
                 else
@@ -4015,7 +4023,7 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
                     else if(removido_token1 == '-') // Somente o arquivo 1 tem o registro nao removido
                     {
                         read_register(arq1, &header1, &in_data1); // Le o registro do arquivo 1
-                        in_data2.encadeamento_lista = -1;
+                        in_data1.encadeamento_lista = -1;
                         if((cluster_size_free - (in_data1.tamanho_registro + 5)) < 0) // Se nao ha espaco na pagina de disco para o novo registro
                         {
                             for(int i = 0; i < cluster_size_free; i++)
@@ -4069,6 +4077,7 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
                     }
                 }
             }
+
             rewind(arq1);
             rewind(arq2);
             rewind(out_arq);
