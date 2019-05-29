@@ -27,5 +27,5 @@
         int edit_by_telefone(const char *file_name, const char *telefone, const char *campo); // Funcao utilizada para editar registros baseado em um telefoneServidor e um campo que deseja editar
         int edit_by_nome(const char *file_name, const char *nome, const char *campo); // Funcao utilizada para editar registros baseado em um nomeServidor e um campo que deseja editar
         int edit_by_cargo(const char *file_name, const char *cargo, const char *campo); // Funcao utilizada para editar registros baseado em um cargoServidor e um campo que deseja editar
-
+        void sort_data_file(const char *file_name, const char *sorted_file_name); // Funcao utilizada para ordenar um arquivo 'file_name' salvando-o como 'sorted_file_name'
 #endif
