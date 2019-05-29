@@ -15,6 +15,14 @@
 #include <limits.h>
 #include <math.h>
 
+typedef struct data_register_t
+{
+    char nome[150], cargo[120], telefone[15];
+    double salario;
+    long int encadeamento_lista;
+    int id, tamanho_registro, nome_size, cargo_size;
+} DATA_REGISTER;
+
 // Registro de cabecalho
 typedef struct file_header_t
 {
@@ -38,8 +46,8 @@ int binary_search(FILE_LIST *l, int list_size); // Funcao utilizada para buscar 
 void insert_full_disk_page(FILE *file, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo); // Funcao utilizada para inserir o registro em uma pagina de disco
 void edit_register(const char *file_name, const char *campo, void *valor_campo, long int comeco_registro, char tag_campo4, char tag_campo5); // Funcao utilizada para atualizar um campo no registro que tem comeco em comeco_registro
 void *get_user_clean_input(const char *campo); // Funcao utilizada para entrada do usuario removendo aspas
-
-
+int compare_data_register(const void *a, const void *b);
+void write_sorted_file(const char *file_name, FILE_HEADER *header, DATA_REGISTER *data, unsigned int n_items);
 
 #define SIZE_FILE_HEADER 214 // Tamanho do cabecalho
 #define CLUSTER_SIZE 32000 // Tamanho do cluster em bytes
@@ -3560,4 +3568,248 @@ void *get_user_clean_input(const char *campo)
         }
     }
     return valor_campo;
+}
+
+void sort_data_file(const char *file_name)
+{
+    /* As variaveis abaixo seguem o mesmo principio do procedimento de criar o arquivo binario, exceto que, neste caso,
+      sao para recuperar os campos do registro do arquivo de dados binario */
+    FILE_HEADER header;
+    FILE *arq = NULL;
+    DATA_REGISTER in_data[6000];
+    // A variavel flag_r eh 0x00 se nao ha algum registro no arquivo de dados, ou 0x01 caso contrario.
+    char telefone_servidor[15], nome_servidor[500], cargo_servidor[200], removido_token = '-', tag_campo = '0', bloat = '@', flag_r = 0x01;
+    // disk_pages eh utilizada para contar paginas de disco acessadas.
+    // var_field_size eh utilizada em um loop para terminar de ler todo o registro
+    int ptr = 0;
+    int reg_size = 0, total_bytes_readed = 0, register_bytes_readed = 0, nome_servidor_size = 0, cargo_servidor_size = 0, var_field_size = 0, disk_pages = 0;
+    long int encadeamento_lista = -1, file_size = 0;
+    if(file_name != NULL)
+    {
+        if(access(file_name, F_OK) == 0)
+        {
+            arq = fopen(file_name, "r+b");
+            if(arq != NULL)
+            {
+                fread(&header.status, sizeof(header.status), 1, arq);
+                if(header.status == '1')
+                {
+                    fread(&header.topo_lista, sizeof(header.topo_lista), 1, arq);
+                    fread(&header.tag_campo1, sizeof(header.tag_campo1), 1, arq);
+                    fread(&header.desc_campo1, sizeof(header.desc_campo1), 1, arq);
+                    fread(&header.tag_campo2, sizeof(header.tag_campo2), 1, arq);
+                    fread(&header.desc_campo2, sizeof(header.desc_campo2), 1, arq);
+                    fread(&header.tag_campo3, sizeof(header.tag_campo3),1, arq);
+                    fread(&header.desc_campo3, sizeof(header.desc_campo3), 1, arq);
+                    fread(&header.tag_campo4, sizeof(header.tag_campo4),1, arq);
+                    fread(&header.desc_campo4, sizeof(header.desc_campo4), 1, arq);
+                    fread(&header.tag_campo5, sizeof(header.tag_campo5), 1, arq);
+                    fread(&header.desc_campo5, sizeof(header.desc_campo5), 1, arq);
+                    fseek(arq, 0, SEEK_SET);
+                    header.status = '0';
+                    fwrite(&header.status, sizeof(header.status), 1, arq);
+                    fseek(arq, 0, SEEK_END);
+                    file_size = ftell(arq);
+                    fseek(arq, CLUSTER_SIZE, SEEK_SET);
+                    disk_pages++;
+                    file_size = (ftell(arq) - file_size);
+
+                    if(file_size < 0) { flag_r = 0x00; } // Se existerem registros, seta a flag_r como 0x00
+
+                    while(flag_r == 0x00) // Checa se o arquivo tem
+                    {
+                        if(feof(arq) != 0)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            while(total_bytes_readed < CLUSTER_SIZE)
+                            {
+                                fread(&removido_token, sizeof(char), 1, arq);
+                                total_bytes_readed += sizeof(char);
+                                if(feof(arq) != 0)
+                                {
+                                    break;
+                                }
+                                else if(removido_token == '-')
+                                {
+                                    fread(&reg_size, sizeof(int), 1, arq);
+                                    total_bytes_readed += sizeof(int);
+                                    in_data[ptr].tamanho_registro = reg_size;
+                                    fread(&encadeamento_lista, sizeof(long int), 1, arq);
+                                    register_bytes_readed += sizeof(long int);
+                                    in_data[ptr].encadeamento_lista = -1;
+                                    fread(&(in_data[ptr].id), sizeof(int), 1, arq);
+                                    register_bytes_readed += sizeof(int);
+                                    fread(&(in_data[ptr].salario), sizeof(double), 1, arq);
+                                    register_bytes_readed += sizeof(double);
+                                    fread(&(in_data[ptr].telefone), (sizeof(in_data[ptr].telefone) - 1), 1, arq);
+                                    register_bytes_readed += sizeof(telefone_servidor) - 1;
+                                    in_data[ptr].nome_size = 0;
+                                    in_data[ptr].cargo_size = 0;
+                                    while(register_bytes_readed < reg_size) // Loop utilizado para ler o resto do registro
+                                    {
+                                        /*
+                                            Se o registro eh o utilmo da pagina de disco, entao le-se byte a byte
+                                            ate acabar a pagina de disco.
+                                        */
+                                        fread(&bloat, sizeof(char), 1, arq);
+                                        if(bloat == '@')
+                                        {
+                                            register_bytes_readed++;
+                                        }
+                                        else
+                                        {
+                                            fseek(arq, -1, SEEK_CUR);
+                                            fread(&var_field_size, sizeof(int), 1, arq);
+                                            register_bytes_readed += sizeof(int);
+                                            fread(&tag_campo, sizeof(char), 1, arq);
+                                            register_bytes_readed += sizeof(char);
+                                            if(tag_campo == header.tag_campo4)
+                                            {
+                                                nome_servidor_size = var_field_size;
+                                                fread(&(in_data[ptr].nome), (nome_servidor_size - 1) , 1, arq);
+                                                register_bytes_readed += nome_servidor_size;
+                                                in_data[ptr].nome_size = nome_servidor_size;
+                                            }
+                                            else if(tag_campo == header.tag_campo5)
+                                            {
+                                                cargo_servidor_size = var_field_size;
+                                                fread(&(in_data[ptr].cargo), (cargo_servidor_size - 1), 1, arq);
+                                                register_bytes_readed += cargo_servidor_size;
+                                                in_data[ptr].cargo_size = cargo_servidor_size;
+                                            }
+                                        }
+                                    }
+                                    ptr++;
+                                    total_bytes_readed += reg_size;
+                                    register_bytes_readed = 0;
+                                    cargo_servidor_size = 0;
+                                    nome_servidor_size = 0;
+                                }
+                                else if(removido_token == '*')
+                                {
+                                    fread(&reg_size, sizeof(int), 1, arq);
+                                    total_bytes_readed += reg_size + sizeof(int);
+                                    fseek(arq, reg_size, SEEK_CUR);
+                                }
+                            }
+                            total_bytes_readed = 0;
+                            disk_pages++;
+                        }
+                    }
+                    qsort(in_data, ptr, sizeof(DATA_REGISTER), compare_data_register);
+                    fseek(arq, 0, SEEK_SET);
+                    header.status = '1';
+                    fwrite(&header.status, sizeof(header.status), 1, arq);
+                    if(flag_r >= 0x01)
+                    {
+                        printf("Registro inexistente.\n");
+                    }
+                    else
+                    {
+                        write_sorted_file("sorted_file.bin", &header, in_data, ptr);
+                        printf("Número de páginas de disco acessadas: %d\n", disk_pages);
+                    }
+                }
+                else
+                {
+                    printf("Falha no processamento do arquivo.\n");
+                }
+                fclose(arq);
+            }
+            else
+            {
+                printf("Falha no processamento do arquivo.\n");
+            }
+        }
+        else
+        {
+            printf("Falha no processamento do arquivo.\n");
+        }
+    }
+}
+
+int compare_data_register(const void *a, const void *b)
+{
+    return ((DATA_REGISTER *) a)->id - ((DATA_REGISTER *) b)->id;
+}
+
+void write_sorted_file(const char *file_name, FILE_HEADER *header, DATA_REGISTER *data, unsigned int n_items)
+{
+    FILE *arq = NULL;
+    char removido_token = '-', bloat = '@';
+    int cluster_size_free = CLUSTER_SIZE, reg_size = 0, update_reg_size = 0;
+    long int last_registry_inserted = 0;
+    if(file_name != NULL)
+    {
+        if(access(file_name, F_OK) != 0) // Checa se o arquivo nao existe
+        {
+            header->topo_lista = -1;
+            write_file_header(file_name, header);
+            arq = fopen(file_name, "r+b");
+            fseek(arq, CLUSTER_SIZE, SEEK_SET);
+            if(arq != NULL)
+            {
+                for(int i = 0; i < n_items; i++)
+                {
+                    reg_size = 34;
+                    if(data[i].nome_size > 0)
+                    {
+                        reg_size += 4 + data[i].nome_size;
+                    }
+                    if(data[i].cargo_size > 0)
+                    {
+                        reg_size += 4 + data[i].cargo_size;
+                    }
+                    if((cluster_size_free - (reg_size + 5)) < 0)
+                    {
+                        printf("FREE_CLUSTER:%d\n", cluster_size_free);
+                        printf("REG_SIZE:%d\n", reg_size+5);
+                        for(int j = 0; j < cluster_size_free; j++)
+                        {
+                            fwrite(&bloat, sizeof(char), 1, arq);
+                        }
+                        fseek(arq, (last_registry_inserted + 1), SEEK_SET);
+                        fread(&update_reg_size, sizeof(int), 1, arq);
+                        update_reg_size += cluster_size_free;
+                        fseek(arq, (last_registry_inserted + 1), SEEK_SET);
+                        fwrite(&update_reg_size, sizeof(int), 1, arq);
+                        cluster_size_free = CLUSTER_SIZE;
+                        fseek(arq, 0, SEEK_END);
+                    }
+                    last_registry_inserted = ftell(arq);
+                    cluster_size_free -= (reg_size + 5);
+                    fwrite(&removido_token, sizeof(char), 1, arq);
+                    fwrite(&reg_size, sizeof(int), 1, arq);
+                    fwrite(&(data[i].encadeamento_lista), sizeof(long int), 1, arq);
+                    fwrite(&(data[i].id), sizeof(int), 1, arq);
+                    fwrite(&(data[i].salario), sizeof(double), 1, arq);
+                    fwrite(&(data[i].telefone), (sizeof(data[i].telefone) - 1), 1, arq);
+                    if(data[i].nome_size > 0)
+                    {
+                        fwrite(&(data[i].nome_size), sizeof(int), 1, arq);
+                        fwrite(&(header->tag_campo4), sizeof(char), 1, arq);
+                        fwrite(&(data[i].nome), data[i].nome_size - 1, 1, arq);
+                    }
+                    if(data[i].cargo_size > 0)
+                    {
+                        fwrite(&(data[i].cargo_size), sizeof(int), 1, arq);
+                        fwrite(&(header->tag_campo5), sizeof(char), 1, arq);
+                        fwrite(&(data[i].cargo), (strlen(data[i].cargo) + 1), 1, arq);
+                    }
+                }
+                fclose(arq);
+            }
+            else
+            {
+                printf("Falha no processamento do arquivo.\n");
+            }
+        }
+        else
+        {
+            printf("Falha no processamento do arquivo.\n");
+        }
+    }
 }
