@@ -246,6 +246,6 @@ int main(int argc, char const *argv[])
     //         break;
     // }
     merging_data_file("binario-5.bin1", "binario-5.bin2", "merged.bin");
-    // get_all_data_file("teste.bin");
+    // get_all_data_file("binario-5.bin1");
     return 0;
 }
