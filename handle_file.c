@@ -3963,7 +3963,9 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
             while(1)
             {
                 ptr_file1 = ftell(arq1);
+                ptr_file2 = ftell(arq2);
                 fread(&removido_token1, sizeof(char), 1, arq1);
+                fread(&removido_token2, sizeof(char), 1, arq2);
                 if(feof(arq1) != 0)
                 {
                     break;
@@ -3972,57 +3974,20 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
                 {
                     i++;
                     read_register(arq1, &header1, &in_data1);
+                    read_register(arq2, &header2, &in_data2);
                     fseek(arq1, (ptr_file1 + 1), SEEK_SET);
+                    fseek(arq2, (ptr_file2 + 1), SEEK_SET);
                     fread(&reg_size, sizeof(int), 1, arq1);
                     fseek(arq1, reg_size, SEEK_CUR);
-                    // fread(&in_data1.tamanho_registro, sizeof(int), 1, arq1);
-                    // fread(&in_data1.encadeamento_lista, sizeof(long int), 1, arq1);
-                    // register_bytes_readed += sizeof(long int);
-                    // fread(&in_data1.id, sizeof(int), 1, arq1);
-                    // register_bytes_readed += sizeof(int);
-                    // fread(&in_data1.salario, sizeof(double), 1, arq1);
-                    // register_bytes_readed += sizeof(double);
-                    // fread(&in_data1.telefone, (sizeof(in_data1.telefone) - 1), 1, arq1);
-                    // register_bytes_readed += (sizeof(in_data1.telefone) - 1);
-                    // // fseek(arq1, (in_data1.tamanho_registro - 34), SEEK_CUR);
-                    // printf("%d\n", in_data1.tamanho_registro);
-                    // // fread(&in_data1.nome_size, sizeof(int), 1, arq1);
-                    // // fread(&tag_campo, sizeof(char), 1, arq1);
-                    // // fread(&in_data1.nome, (in_data1.nome_size - 1), 1, arq1);
-                    // while(register_bytes_readed < in_data1.tamanho_registro)
-                    // {
-                    //     ptr_file1 = ftell(arq1);
-                    //     fread(&bloat, sizeof(char), 1, arq1);
-                    //     if(bloat == '@')
-                    //     {
-                    //         register_bytes_readed++;
-                    //     }
-                    //     else
-                    //     {
-                    //         fseek(arq1, ptr_file1, SEEK_SET);
-                    //         fread(&var_field_size, sizeof(int), 1, arq1);
-                    //         register_bytes_readed += sizeof(int);
-                    //         fread(&tag_campo, sizeof(char), 1, arq1);
-                    //         register_bytes_readed += sizeof(char);
-                    //         if(tag_campo == header1.tag_campo4)
-                    //         {
-                    //             in_data1.nome_size = var_field_size;
-                    //             fread(&in_data1.nome, (in_data1.nome_size - 1) , 1, arq1);
-                    //             register_bytes_readed += var_field_size;
-                    //         }
-                    //         else if(tag_campo == header1.tag_campo5)
-                    //         {
-                    //
-                    //             in_data1.cargo_size = var_field_size;
-                    //             fread(&in_data1.cargo, (in_data1.cargo_size - 1), 1, arq1);
-                    //             register_bytes_readed += var_field_size;
-                    //         }
-                    //     }
-                    // }
-                    // // read_register(arq2, &header2, &in_data2);
+                    fread(&reg_size, sizeof(int), 1, arq2);
+                    fseek(arq2, reg_size, SEEK_CUR);
                     printf("ID1: %d\n", in_data1.id);
                     printf("NOME: %s\n", in_data1.nome);
                     printf("CARGO: %s\n", in_data1.cargo);
+                    printf("\n");
+                    printf("ID2: %d\n", in_data2.id);
+                    printf("NOME2: %s\n", in_data2.nome);
+                    printf("CARGO2: %s\n", in_data2.cargo);
                     // // fseek(arq1, ptr_file1, SEEK_SET);
                     // // fseek(arq1, (in_data1.tamanho_registro - 12), SEEK_CUR);
                     // // printf("ID2: %d\n", in_data2.id);
