@@ -3844,7 +3844,6 @@ void read_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data)
 {
     char bloat = '@', tag_campo = '-';
     int register_bytes_readed = 0, var_field_size = 0, reg_size = 0;
-    long int ptr_file1 = 0;
     if(fp != NULL)
     {
         fread(&reg_size, sizeof(int), 1, fp);
@@ -3859,32 +3858,39 @@ void read_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data)
         register_bytes_readed += sizeof(data->telefone) - 1;
         data->nome_size = 0;
         data->cargo_size = 0;
+
         while(register_bytes_readed < data->tamanho_registro)
         {
-            ptr_file1 = ftell(fp);
             fread(&bloat, sizeof(char), 1, fp);
-            if(bloat == '@')
+            if(feof(fp) != 0)
             {
-                register_bytes_readed++;
+                break;
             }
             else
             {
-                fseek(fp, ptr_file1, SEEK_SET);
-                fread(&var_field_size, sizeof(int), 1, fp);
-                register_bytes_readed += sizeof(int);
-                fread(&tag_campo, sizeof(char), 1, fp);
-                register_bytes_readed += sizeof(char);
-                if(tag_campo == header->tag_campo4)
+                if(bloat == '@')
                 {
-                    data->nome_size = var_field_size;
-                    fread(&(data->nome), (data->nome_size - 1), 1, fp);
-                    register_bytes_readed += var_field_size;
+                    register_bytes_readed++;
                 }
-                else if(tag_campo == header->tag_campo5)
+                else
                 {
-                    data->cargo_size = var_field_size;
-                    fread(&(data->cargo), (data->cargo_size - 1), 1, fp);
-                    register_bytes_readed += var_field_size;
+                    fseek(fp, -1, SEEK_CUR);
+                    fread(&var_field_size, sizeof(int), 1, fp);
+                    register_bytes_readed += sizeof(int);
+                    fread(&tag_campo, sizeof(char), 1, fp);
+                    register_bytes_readed += sizeof(char);
+                    if(tag_campo == header->tag_campo4)
+                    {
+                        data->nome_size = var_field_size;
+                        fread(&(data->nome), (data->nome_size - 1), 1, fp);
+                        register_bytes_readed += var_field_size;
+                    }
+                    else if(tag_campo == header->tag_campo5)
+                    {
+                        data->cargo_size = var_field_size;
+                        fread(&(data->cargo), (data->cargo_size - 1), 1, fp);
+                        register_bytes_readed += var_field_size;
+                    }
                 }
             }
         }
@@ -3954,20 +3960,21 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
             out_arq = fopen(merged_file_name, "r+b");
             fseek(out_arq, CLUSTER_SIZE, SEEK_SET);
             // Insercao no arquivo novo realizando merging
-            // while(1)
-            // {
-                fread(&removido_token1, sizeof(char), 1, arq1);
+            while(1)
+            {
                 ptr_file1 = ftell(arq1);
-                // fread(&removido_token2, sizeof(char), 1, arq2);
-                if(feof(arq1) != 0 || feof(arq2) != 0)
+                fread(&removido_token1, sizeof(char), 1, arq1);
+                if(feof(arq1) != 0)
                 {
-                    // break;
+                    break;
                 }
                 else
                 {
                     i++;
                     read_register(arq1, &header1, &in_data1);
-
+                    fseek(arq1, (ptr_file1 + 1), SEEK_SET);
+                    fread(&reg_size, sizeof(int), 1, arq1);
+                    fseek(arq1, reg_size, SEEK_CUR);
                     // fread(&in_data1.tamanho_registro, sizeof(int), 1, arq1);
                     // fread(&in_data1.encadeamento_lista, sizeof(long int), 1, arq1);
                     // register_bytes_readed += sizeof(long int);
@@ -4015,11 +4022,12 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
                     // // read_register(arq2, &header2, &in_data2);
                     printf("ID1: %d\n", in_data1.id);
                     printf("NOME: %s\n", in_data1.nome);
+                    printf("CARGO: %s\n", in_data1.cargo);
                     // // fseek(arq1, ptr_file1, SEEK_SET);
                     // // fseek(arq1, (in_data1.tamanho_registro - 12), SEEK_CUR);
                     // // printf("ID2: %d\n", in_data2.id);
                 }
-            // }
+            }
             rewind(arq1);
             rewind(arq2);
             rewind(out_arq);
