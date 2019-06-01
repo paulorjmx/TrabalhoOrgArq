@@ -3901,9 +3901,6 @@ void read_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data)
     }
     if(end_page == 0x01)
     {
-        printf("ULTIMO REGISTRO DA PAGINA DE DISCO\n");
-        printf("ACTUAL REG_SIZE: %d\n", data->tamanho_registro);
-        printf("TRUE REG_SIZE: %d\n", true_reg_size);
         data->tamanho_registro = true_reg_size;
     }
 }
@@ -3939,7 +3936,7 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
     char removido_token1 = '-', removido_token2 = '-';
     const char bloat = '@';
     FILE *arq1 = NULL, *arq2 = NULL, *out_arq = NULL;
-    int r = -1, cluster_size_free = CLUSTER_SIZE, reg_size = 0, i = 0, b = 0;
+    int r = -1, cluster_size_free = CLUSTER_SIZE, reg_size = 0, i = 0, qt_bloat = 0;
     long int last_registry_inserted = 0, ptr_file1 = 0, ptr_file2 = 0;
     FILE_HEADER header1, header2;
     DATA_REGISTER in_data1, in_data2;
@@ -3970,8 +3967,6 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
                 reg_size = 0;
                 ptr_file1 = ftell(arq1); // Guarda o byte offset do comeco do registro (arquivo 1)
                 ptr_file2 = ftell(arq2); // Guarda o byte offset do comeco do registro (arquivo 2)
-                // printf("PTR1: %ld\n", ptr_file1);
-                // printf("PTR2: %ld\n", ptr_file2);
                 fread(&removido_token1, sizeof(char), 1, arq1); // Le o primeiro byte do registro (arquivo 1)
                 fread(&removido_token2, sizeof(char), 1, arq2); // Le o primeiro byte do registro (arquivo 2)
 
@@ -3991,24 +3986,22 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
                     fseek(arq1, reg_size, SEEK_CUR);
                     fread(&reg_size, sizeof(int), 1, arq2);
                     fseek(arq2, reg_size, SEEK_CUR);
-                    // printf("%d: %s\n", in_data1.id, in_data1.nome);
-                    // printf("%d: %s\n", in_data2.id, in_data2.nome);
 
                     if(removido_token1 == '-' && removido_token2 == '-')
                     {
+                        qt_bloat = cluster_size_free;
                         if(in_data1.id < in_data2.id)
                         {
-                            b = cluster_size_free;
                             cluster_size_free -= (in_data1.tamanho_registro + 5);
                             if(cluster_size_free < 0)
                             {
-                                for(int j = 0; j < b; j++)
+                                for(int j = 0; j < qt_bloat; j++)
                                 {
                                     fwrite(&bloat, sizeof(char), 1, out_arq);
                                 }
                                 fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
                                 fread(&reg_size, sizeof(int), 1, out_arq);
-                                reg_size += b;
+                                reg_size += qt_bloat;
                                 fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
                                 fwrite(&reg_size, sizeof(int), 1, out_arq);
                                 fseek(out_arq, reg_size, SEEK_CUR);
@@ -4016,22 +4009,20 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
                             }
                             last_registry_inserted = ftell(out_arq);
                             write_register(out_arq, &header1, &in_data1);
-                            // printf("REG1:%d\n", in_data1.tamanho_registro);
                             fseek(arq2, ptr_file2, SEEK_SET);
                         }
                         else if(in_data2.id < in_data1.id)
                         {
-                            b = cluster_size_free;
                             cluster_size_free -= (in_data2.tamanho_registro + 5);
                             if(cluster_size_free < 0)
                             {
-                                for(int j = 0; j < b; j++)
+                                for(int j = 0; j < qt_bloat; j++)
                                 {
                                     fwrite(&bloat, sizeof(char), 1, out_arq);
                                 }
                                 fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
                                 fread(&reg_size, sizeof(int), 1, out_arq);
-                                reg_size += b;
+                                reg_size += qt_bloat;
                                 fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
                                 fwrite(&reg_size, sizeof(int), 1, out_arq);
                                 fseek(out_arq, reg_size, SEEK_CUR);
@@ -4039,21 +4030,20 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
                             }
                             last_registry_inserted = ftell(out_arq);
                             write_register(out_arq, &header1, &in_data2);
-                            // printf("REG2:%d\n", in_data2.tamanho_registro);
                             fseek(arq1, ptr_file1, SEEK_SET);
                         }
                         else
                         {
-                            // printf("CASO3\n");
+
                         }
                     }
                     else if(removido_token1 == '-') // Se o registro do arquivo 2 esta removido
                     {
-                        printf("CAS\n");
+
                     }
                     else if(removido_token2 == '-') // Se o registro do arquivo 1 esta removido
                     {
-                        printf("CAS 2\n");
+
                     }
                 }
                 i++;
