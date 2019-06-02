@@ -4173,7 +4173,142 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
         }
         else
         {
-            printf("Falha no processamento do arquivo\n");
+            printf("Falha no processamento do arquivo.\n");
+        }
+        fclose(arq1);
+        fclose(arq2);
+    }
+    else
+    {
+        printf("Falha no processamento do arquivo.\n");
+    }
+    return r;
+}
+
+int matching_data_file(const char *file_name1, const char *file_name2, const char *merged_file_name)
+{
+    char removido_token1 = '-', removido_token2 = '-';
+    const char bloat = '@';
+    FILE *arq1 = NULL, *arq2 = NULL, *out_arq = NULL;
+    int r = -1, cluster_size_free = CLUSTER_SIZE, reg_size = 0, i = 0, qt_bloat = 0;
+    long int last_registry_inserted = 0, ptr_file1 = 0, ptr_file2 = 0;
+    FILE_HEADER header1, header2;
+    DATA_REGISTER in_data1, in_data2, *reg_to_write = NULL;
+    arq1 = fopen(file_name1, "r+b");
+    arq2 = fopen(file_name2, "r+b");
+    if(arq1 != NULL && arq2 != NULL)
+    {
+        read_file_header(arq1, &header1);
+        read_file_header(arq2, &header2);
+        if(header1.status == '1' && header2.status == '1') // Se os dois arquivos estao consistentes
+        {
+            rewind(arq1);
+            rewind(arq2);
+            header1.status = '0';
+            header2.status = '0';
+            fwrite(&header1.status, sizeof(header1.status), 1, arq1);
+            fwrite(&header2.status, sizeof(header2.status), 1, arq2);
+            header1.topo_lista = -1;
+            header1.status = '1';
+            write_file_header(merged_file_name, &header1); // Escreve o cabecalho do arquivo 1 no novo arquivo
+            fseek(arq1, CLUSTER_SIZE, SEEK_SET); // Pula a pagina de disco que o registro de cabecalho estao (arquivo 1)
+            fseek(arq2, CLUSTER_SIZE, SEEK_SET); // Pula a pagina de disco que o registro de cabecalho estao (arquivo 2)
+            out_arq = fopen(merged_file_name, "r+b"); // Cria o novo arquivo
+            fseek(out_arq, CLUSTER_SIZE, SEEK_SET); // Pula a pagina de disco que o registro de cabecalho estao (arquivo novo)
+            // Insercao no arquivo novo realizando merging
+            while(1) // Loop para insercao de registros no novo arquivo
+            {
+                reg_size = 0;
+                ptr_file1 = ftell(arq1); // Guarda o byte offset do comeco do registro (arquivo 1)
+                ptr_file2 = ftell(arq2); // Guarda o byte offset do comeco do registro (arquivo 2)
+                fread(&removido_token1, sizeof(char), 1, arq1); // Le o primeiro byte do registro (arquivo 1)
+                fread(&removido_token2, sizeof(char), 1, arq2); // Le o primeiro byte do registro (arquivo 2)
+
+                if(feof(arq1) != 0 || feof(arq2) != 0) // Se um dos dois arquivos chegou ao fim, sai do loop
+                {
+                    break;
+                }
+                else
+                {
+                    read_register(arq1, &header1, &in_data1); // Le o registro do arquivo 1
+                    read_register(arq2, &header2, &in_data2); // Le o registro do arquivo 2
+                    in_data1.encadeamento_lista = -1;
+                    in_data2.encadeamento_lista = -1;
+                    fseek(arq1, (ptr_file1 + 1), SEEK_SET);
+                    fseek(arq2, (ptr_file2 + 1), SEEK_SET);
+                    fread(&reg_size, sizeof(int), 1, arq1);
+                    fseek(arq1, reg_size, SEEK_CUR);
+                    fread(&reg_size, sizeof(int), 1, arq2);
+                    fseek(arq2, reg_size, SEEK_CUR);
+
+                    qt_bloat = cluster_size_free;
+                    if(removido_token1 == '-' && removido_token2 == '-')
+                    {
+                        if(in_data1.id < in_data2.id)
+                        {
+                            reg_to_write = NULL;
+                            fseek(arq2, ptr_file2, SEEK_SET);
+                        }
+                        else if(in_data2.id < in_data1.id)
+                        {
+                            reg_to_write = NULL;
+                            fseek(arq1, ptr_file1, SEEK_SET);
+                        }
+                        else if(in_data1.id == in_data2.id)
+                        {
+                            reg_to_write = &in_data1;
+                        }
+                    }
+                    else if(removido_token1 == '-') // Se o registro do arquivo 2 esta removido
+                    {
+                        reg_to_write = &in_data1;
+                    }
+                    else if(removido_token2 == '-') // Se o registro do arquivo 1 esta removido
+                    {
+                        reg_to_write = &in_data2;
+                    }
+                    else
+                    {
+                        reg_to_write = NULL;
+                    }
+
+                    if(reg_to_write != NULL)
+                    {
+                        cluster_size_free -= (reg_to_write->tamanho_registro + 5);
+                        if(cluster_size_free < 0)
+                        {
+                            for(int j = 0; j < qt_bloat; j++)
+                            {
+                                fwrite(&bloat, sizeof(char), 1, out_arq);
+                            }
+                            fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
+                            fread(&reg_size, sizeof(int), 1, out_arq);
+                            reg_size += qt_bloat;
+                            fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
+                            fwrite(&reg_size, sizeof(int), 1, out_arq);
+                            fseek(out_arq, reg_size, SEEK_CUR);
+                            cluster_size_free = CLUSTER_SIZE - (reg_to_write->tamanho_registro + 5);
+                        }
+                        last_registry_inserted = ftell(out_arq);
+                        write_register(out_arq, &header1, reg_to_write);
+                    }
+                }
+                i++;
+            }
+            rewind(arq1);
+            rewind(arq2);
+            rewind(out_arq);
+            header1.status = '1';
+            header2.status = '1';
+            fwrite(&header1.status, sizeof(header1.status), 1, arq1);
+            fwrite(&header2.status, sizeof(header2.status), 1, arq2);
+            fwrite(&header1.status, sizeof(header1.status), 1, out_arq);
+            r = 0;
+            fclose(out_arq);
+        }
+        else
+        {
+            printf("Falha no processamento do arquivo.\n");
         }
         fclose(arq1);
         fclose(arq2);
