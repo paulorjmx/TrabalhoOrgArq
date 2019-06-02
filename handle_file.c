@@ -3939,7 +3939,7 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
     int r = -1, cluster_size_free = CLUSTER_SIZE, reg_size = 0, i = 0, qt_bloat = 0;
     long int last_registry_inserted = 0, ptr_file1 = 0, ptr_file2 = 0;
     FILE_HEADER header1, header2;
-    DATA_REGISTER in_data1, in_data2, reg_to_write;
+    DATA_REGISTER in_data1, in_data2, *reg_to_write = NULL;
     arq1 = fopen(file_name1, "r+b");
     arq2 = fopen(file_name2, "r+b");
     if(arq1 != NULL && arq2 != NULL)
@@ -3992,44 +3992,52 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
                     {
                         if(in_data1.id < in_data2.id)
                         {
-                            reg_to_write = in_data1;
+                            reg_to_write = &in_data1;
                             fseek(arq2, ptr_file2, SEEK_SET);
                         }
                         else if(in_data2.id < in_data1.id)
                         {
-                            reg_to_write = in_data2;
+                            reg_to_write = &in_data2;
                             fseek(arq1, ptr_file1, SEEK_SET);
                         }
                         else
                         {
-
+                            reg_to_write = &in_data1;
                         }
                     }
                     else if(removido_token1 == '-') // Se o registro do arquivo 2 esta removido
                     {
-
+                        reg_to_write = &in_data1;
                     }
                     else if(removido_token2 == '-') // Se o registro do arquivo 1 esta removido
                     {
-
+                        reg_to_write = &in_data2;
                     }
-                    cluster_size_free -= (reg_to_write.tamanho_registro + 5);
-                    if(cluster_size_free < 0)
+                    else
                     {
-                        for(int j = 0; j < qt_bloat; j++)
-                        {
-                            fwrite(&bloat, sizeof(char), 1, out_arq);
-                        }
-                        fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
-                        fread(&reg_size, sizeof(int), 1, out_arq);
-                        reg_size += qt_bloat;
-                        fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
-                        fwrite(&reg_size, sizeof(int), 1, out_arq);
-                        fseek(out_arq, reg_size, SEEK_CUR);
-                        cluster_size_free = CLUSTER_SIZE - (reg_to_write.tamanho_registro + 5);
+                        reg_to_write = NULL;
                     }
-                    last_registry_inserted = ftell(out_arq);
-                    write_register(out_arq, &header1, &reg_to_write);
+
+                    if(reg_to_write != NULL)
+                    {
+                        cluster_size_free -= (reg_to_write->tamanho_registro + 5);
+                        if(cluster_size_free < 0)
+                        {
+                            for(int j = 0; j < qt_bloat; j++)
+                            {
+                                fwrite(&bloat, sizeof(char), 1, out_arq);
+                            }
+                            fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
+                            fread(&reg_size, sizeof(int), 1, out_arq);
+                            reg_size += qt_bloat;
+                            fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
+                            fwrite(&reg_size, sizeof(int), 1, out_arq);
+                            fseek(out_arq, reg_size, SEEK_CUR);
+                            cluster_size_free = CLUSTER_SIZE - (reg_to_write->tamanho_registro + 5);
+                        }
+                        last_registry_inserted = ftell(out_arq);
+                        write_register(out_arq, &header1, reg_to_write);
+                    }
                 }
                 i++;
             }
