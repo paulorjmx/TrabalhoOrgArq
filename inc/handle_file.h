@@ -29,4 +29,5 @@
         int edit_by_cargo(const char *file_name, const char *cargo, const char *campo); // Funcao utilizada para editar registros baseado em um cargoServidor e um campo que deseja editar
         int sort_data_file(const char *file_name, const char *sorted_file_name); // Funcao utilizada para ordenar um arquivo 'file_name' salvando-o como 'sorted_file_name'
         int merging_data_file(const char *file_name1, const char *file_name2, const char *merged_file_name); // Funcao utilizada para realizar a uniao de dois arquivos de dados
+        int matching_data_file(const char *file_name1, const char *file_name2, const char *merged_file_name); // Funcao utilizada para realizar a intersecao de dois arquivos de dados
 #endif
