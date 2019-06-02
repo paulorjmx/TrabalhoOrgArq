@@ -51,7 +51,7 @@ void *get_user_clean_input(const char *campo); // Funcao utilizada para entrada 
 int compare_data_register(const void *a, const void *b); // Funcao de comparacao utilizada pelo qsort
 void write_sorted_file(const char *file_name, FILE_HEADER *header, DATA_REGISTER *data, unsigned int n_items); // Funcao utilizada para escrever registros em um arquivo de dados.
 void read_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data); // Funcao utilizada para ler um registro para onde 'fp' esta 'apontando'
-void write_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data);
+void write_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data); // Funcao utilizada para escrever um registro para onde 'fp' aponta
 
 #define SIZE_FILE_HEADER 214 // Tamanho do cabecalho
 #define CLUSTER_SIZE 32000 // Tamanho do cluster em bytes
@@ -3842,7 +3842,20 @@ void write_sorted_file(const char *file_name, FILE_HEADER *header, DATA_REGISTER
 
 void read_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data)
 {
+    /*
+        'end_page' eh uma flag utilizada para marcar se o registro eh o ultimo registro da pagina de disco
+        Isso significa, que se um registro eh o ultimo de sua respectiva pagina de disco, o tamanho dele tem
+        de ser alterado.
+    */
     char bloat = '@', tag_campo = '-', end_page = 0x00;
+    /*
+        'true_reg_size' serve para armazenar o valor real do tamanho do registro lido.
+        Quando a flag 'end_page' sobe, o tamanho do registro lido eh o valor que true_reg_size tem.
+        Ele armazena o tamanho do registro sem contabilizar o lixo, caso tenha algum.
+    */
+    // 'register_bytes_readed' eh usado para armazenar a quantidade de bytes lidos do registro
+    // 'var_field_size' serve para armazenar temporariamente o valor dos campos variaveis dentro do registro
+    // 'reg_size' eh o valor do tamanho do registro lido
     int register_bytes_readed = 0, var_field_size = 0, reg_size = 0, true_reg_size = 0;
     if(fp != NULL)
     {
@@ -3860,7 +3873,7 @@ void read_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data)
         data->cargo_size = 0;
         true_reg_size = register_bytes_readed;
 
-        while(register_bytes_readed < data->tamanho_registro)
+        while(register_bytes_readed < data->tamanho_registro) // Enquanto nao leu o registro inteiro
         {
             fread(&bloat, sizeof(char), 1, fp);
             if(feof(fp) != 0)
@@ -3869,9 +3882,9 @@ void read_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data)
             }
             else
             {
-                if(bloat == '@')
+                if(bloat == '@') // Se o registro eh o ultimo da pagina de disco, ele apenas vai ler o lixo e contabilizar
                 {
-                    end_page = 0x01;
+                    end_page = 0x01; // Sobe a flag de ultimo registro da pagina de disco
                     register_bytes_readed++;
                 }
                 else
@@ -3899,8 +3912,9 @@ void read_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data)
             }
         }
     }
-    if(end_page == 0x01)
+    if(end_page == 0x01) // Se o registro eh o ultimo registro da pagina de disco
     {
+        // O tamanho do registro lido tem de ser atualizado para o tamanho sem contabilizar o lixo
         data->tamanho_registro = true_reg_size;
     }
 }
@@ -3933,12 +3947,23 @@ void write_register(FILE *fp, FILE_HEADER *header, DATA_REGISTER *data)
 
 int merging_data_file(const char *file_name1, const char *file_name2, const char *merged_file_name)
 {
+    // 'removido_token1' e 'removido_token2' servem para armazenar o primeiro byte lido do registro
     char removido_token1 = '-', removido_token2 = '-';
+    // 'bloat' serve para preenchimento de lixo no final da pagina de disco
     const char bloat = '@';
+    // Ponteiros para arquivos que serao manipulados
     FILE *arq1 = NULL, *arq2 = NULL, *out_arq = NULL;
-    int r = -1, cluster_size_free = CLUSTER_SIZE, reg_size = 0, i = 0, qt_bloat = 0;
+    // 'r' guarda o retorno da funcao
+    // 'reg_size' eh usada como variavel auxiliar para guardar o tamanho de um registro lido
+    // 'cluster_size_free' serve para quantificar os bytes livres na pagina de disco
+    // 'qt_bloat' serve para ter a quantidade de lixo que sera colocado no fim da pagina de disco
+    int r = -1, cluster_size_free = CLUSTER_SIZE, reg_size = 0, qt_bloat = 0;
+    // As variaveis abaixo, servem como 'ponteiros', armazenando a posicao de comeco de registros
     long int last_registry_inserted = 0, ptr_file1 = 0, ptr_file2 = 0;
+    // 'header1' e 'header2' armazenam, respectivamente, o registro de cabecalho do arquivo 1 e arquivo 2
     FILE_HEADER header1, header2;
+    // 'in_data1' e 'in_data2' sao registros lidos do arquivo 1 e arquivo 2, respectivamente
+    // 'reg_to_write' eh utilizada para armazenar o registro que sera inserido no arquivo de dados novo
     DATA_REGISTER in_data1, in_data2, *reg_to_write = NULL;
     arq1 = fopen(file_name1, "r+b");
     arq2 = fopen(file_name2, "r+b");
@@ -3988,19 +4013,19 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
                     fseek(arq2, reg_size, SEEK_CUR);
 
                     qt_bloat = cluster_size_free;
-                    if(removido_token1 == '-' && removido_token2 == '-')
+                    if(removido_token1 == '-' && removido_token2 == '-') // Se os dois registros nao foram removidos
                     {
                         if(in_data1.id < in_data2.id)
                         {
-                            reg_to_write = &in_data1;
-                            fseek(arq2, ptr_file2, SEEK_SET);
+                            reg_to_write = &in_data1; // O registro que sera escrito vem do arquivo 1
+                            fseek(arq2, ptr_file2, SEEK_SET); // Volta o pointeiro para o comeco do registro no arquivo 2
                         }
                         else if(in_data2.id < in_data1.id)
                         {
-                            reg_to_write = &in_data2;
-                            fseek(arq1, ptr_file1, SEEK_SET);
+                            reg_to_write = &in_data2; // O registro que sera escrito vem do arquivo 1
+                            fseek(arq1, ptr_file1, SEEK_SET); // Volta o pointeiro para o comeco do registro no arquivo 2
                         }
-                        else
+                        else // Os dois idServidor sao iguais
                         {
                             reg_to_write = &in_data1;
                         }
@@ -4013,35 +4038,41 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
                     {
                         reg_to_write = &in_data2;
                     }
-                    else
+                    else // Se os dois registros foram removidos
                     {
                         reg_to_write = NULL;
                     }
 
-                    if(reg_to_write != NULL)
+                    if(reg_to_write != NULL) // Se tem algum registro para inserir
                     {
-                        cluster_size_free -= (reg_to_write->tamanho_registro + 5);
-                        if(cluster_size_free < 0)
+                        cluster_size_free -= (reg_to_write->tamanho_registro + 5); // Retira espaco da pagina de disco
+                        if(cluster_size_free < 0) // Se o arquivo nao cabe na pagina de disco
                         {
-                            for(int j = 0; j < qt_bloat; j++)
+                            for(int j = 0; j < qt_bloat; j++) // Preenche com lixo
                             {
                                 fwrite(&bloat, sizeof(char), 1, out_arq);
                             }
+                            // Atualiza o tamanho do ultimo registro da pagina de disco
                             fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
                             fread(&reg_size, sizeof(int), 1, out_arq);
                             reg_size += qt_bloat;
                             fseek(out_arq, (last_registry_inserted + 1), SEEK_SET);
                             fwrite(&reg_size, sizeof(int), 1, out_arq);
                             fseek(out_arq, reg_size, SEEK_CUR);
+                            // Comeca uma nova pagina de disco com o espaco reduzido do registro que sera inserido
                             cluster_size_free = CLUSTER_SIZE - (reg_to_write->tamanho_registro + 5);
                         }
-                        last_registry_inserted = ftell(out_arq);
-                        write_register(out_arq, &header1, reg_to_write);
+                        last_registry_inserted = ftell(out_arq); // 'Aponta' para o ultimo registro inserido
+                        write_register(out_arq, &header1, reg_to_write); // Escreve o registro no arquivo novo
                     }
                 }
-                i++;
             }
-
+            /*  O trecho de codigo abaixo, com os ifs, sao utilizados para escrever os registros que faltam,
+                sejam ele vindo do arquivo 1 ou do arquivo 2.
+                Como o loop acima escreve 'n-1' registros, eh necessario escrever um registro (o ultimo recuperado dentro do loop)
+                que ainda nao foi escrito.
+                Dentro dos trechos, os blocos sao iguais aos executados dentro do loop.
+            */
             if((reg_to_write->id == in_data1.id) && (feof(arq2) == 0)) // Se faltou escrever o registro do arquivo 2, significa que o tem mais registros para serem inseridos e todos sao do arquivo 2
             {
                 qt_bloat = cluster_size_free;
@@ -4160,6 +4191,7 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
                     }
                 }
             }
+            // Escreve os status em todos os arquivos
             rewind(arq1);
             rewind(arq2);
             rewind(out_arq);
@@ -4187,19 +4219,30 @@ int merging_data_file(const char *file_name1, const char *file_name2, const char
 
 int matching_data_file(const char *file_name1, const char *file_name2, const char *merged_file_name)
 {
+    // 'removido_token1' e 'removido_token2' servem para armazenar o primeiro byte lido do registro
     char removido_token1 = '-', removido_token2 = '-';
+    // 'bloat' serve para preenchimento de lixo no final da pagina de disco
     const char bloat = '@';
+    // Ponteiros para arquivos que serao manipulados
     FILE *arq1 = NULL, *arq2 = NULL, *out_arq = NULL;
-    int r = -1, cluster_size_free = CLUSTER_SIZE, reg_size = 0, i = 0, qt_bloat = 0;
+    // 'r' guarda o retorno da funcao
+    // 'reg_size' eh usada como variavel auxiliar para guardar o tamanho de um registro lido
+    // 'cluster_size_free' serve para quantificar os bytes livres na pagina de disco
+    // 'qt_bloat' serve para ter a quantidade de lixo que sera colocado no fim da pagina de disco
+    int r = -1, cluster_size_free = CLUSTER_SIZE, reg_size = 0, qt_bloat = 0;
+    // As variaveis abaixo, servem como 'ponteiros', armazenando a posicao de comeco de registros
     long int last_registry_inserted = 0, ptr_file1 = 0, ptr_file2 = 0;
+    // As variaveis abaixo servem para armazenar o registro de cabecalho do arquivo 1 e arquivo 2, respectivamente
     FILE_HEADER header1, header2;
+    // 'in_data1' e 'in_data2' sao registros lidos do arquivo 1 e arquivo 2, respectivamente
+    // 'reg_to_write' eh utilizada para armazenar o registro que sera inserido no arquivo de dados novo
     DATA_REGISTER in_data1, in_data2, *reg_to_write = NULL;
     arq1 = fopen(file_name1, "r+b");
     arq2 = fopen(file_name2, "r+b");
     if(arq1 != NULL && arq2 != NULL)
     {
-        read_file_header(arq1, &header1);
-        read_file_header(arq2, &header2);
+        read_file_header(arq1, &header1); // Le o cabecalho do arquivo 1
+        read_file_header(arq2, &header2); // Le o cabecalho do arquivo 2
         if(header1.status == '1' && header2.status == '1') // Se os dois arquivos estao consistentes
         {
             rewind(arq1);
@@ -4247,16 +4290,16 @@ int matching_data_file(const char *file_name1, const char *file_name2, const cha
                         if(in_data1.id < in_data2.id)
                         {
                             reg_to_write = NULL;
-                            fseek(arq2, ptr_file2, SEEK_SET);
+                            fseek(arq2, ptr_file2, SEEK_SET); // Volta o 'ponteiro' para o comeco do registro do arquivo 2
                         }
                         else if(in_data2.id < in_data1.id)
                         {
                             reg_to_write = NULL;
-                            fseek(arq1, ptr_file1, SEEK_SET);
+                            fseek(arq1, ptr_file1, SEEK_SET); // Volta o 'ponteiro' para o comeco do registro do arquivo 1
                         }
                         else if(in_data1.id == in_data2.id)
                         {
-                            reg_to_write = &in_data1;
+                            reg_to_write = &in_data1; // Ha um registro para escrever!
                         }
                     }
                     else if(removido_token1 == '-') // Se o registro do arquivo 2 esta removido
@@ -4293,8 +4336,8 @@ int matching_data_file(const char *file_name1, const char *file_name2, const cha
                         write_register(out_arq, &header1, reg_to_write);
                     }
                 }
-                i++;
             }
+            // Escreve os status em todos os arquivos
             rewind(arq1);
             rewind(arq2);
             rewind(out_arq);
