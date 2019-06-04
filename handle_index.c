@@ -26,7 +26,9 @@ typedef struct index_data_t
 
 void init_index_header(HEADER_INDEX *h); // Funcao para inicialiar o registro de cabecalho de um arquivo de indice
 void write_index_header(const char *file_name, HEADER_INDEX *h); // Funcao utilizada para escrever o arquivo de cabecalho no arquivo de indice, criando-o tambem
-int compare_index_function(const void *a, const void *b);
+int compare_index_function(const void *a, const void *b); // Funcao utilizada em 'qsort' para ordenar os indices
+int load_index(const char *file_name, INDEX_DATA **data); // Funcao utilizada para carregar o arquivo de indice para 'data'
+int binary_seach_index(INDEX_DATA *data, unsigned int nitems, const char *nome); // Funcao utilizada para buscar o nome no indice carregado na memoria primaria
 
 
 void init_index_header(HEADER_INDEX *h)
@@ -175,6 +177,25 @@ void create_index_file(const char *file_name, const char *data_file_name)
     }
 }
 
+long int search_name_index(const char *file_name, const char *nome)
+{
+    long int bo = -1;
+    int qt_reg = 0, i = 0;
+    HEADER_INDEX header;
+    INDEX_DATA *index_data = NULL;
+    if(file_name != NULL)
+    {
+        qt_reg = load_index(file_name, &index_data);
+        i = binary_seach_index(index_data, qt_reg, nome);
+        if(i >= 0)
+        {
+            bo = index_data[i].byteOffset;
+        }
+        free(index_data);
+    }
+
+    return bo;
+}
 
 int compare_index_function(const void *a, const void *b)
 {
@@ -185,3 +206,87 @@ int compare_index_function(const void *a, const void *b)
     }
     return r;
 }
+
+int load_index(const char *file_name, INDEX_DATA **data)
+{
+    char bloat = '@';
+    int qt_reg = -1, cluster_size_free = INDEX_CLUSTER_SIZE, ptr = 0;
+    HEADER_INDEX header;
+    FILE *index_arq = NULL;
+    if(file_name != NULL && data != NULL)
+    {
+        index_arq = fopen(file_name, "rb");
+        if(index_arq != NULL)
+        {
+            fread(&header.status, sizeof(char), 1, index_arq);
+            if(header.status == '1')
+            {
+                fread(&header.nroReg, sizeof(int), 1, index_arq);
+                fseek(index_arq, INDEX_CLUSTER_SIZE, SEEK_SET);
+                qt_reg = header.nroReg;
+                (*data) = (INDEX_DATA *) malloc(sizeof(INDEX_DATA) * qt_reg);
+                if((*data) != NULL)
+                {
+                    for(int i = 0; i < qt_reg; i++)
+                    {
+                        if((cluster_size_free - 128) < 0)
+                        {
+                            for(int k = 0; k < cluster_size_free; k++)
+                            {
+                                fread(&bloat, sizeof(char), 1, index_arq);
+                            }
+                            cluster_size_free = INDEX_CLUSTER_SIZE;
+                        }
+                        fread(&( (*data)[ptr].chaveBusca), 120, 1, index_arq);
+                        fread(&( (*data)[ptr].byteOffset), sizeof(long int), 1, index_arq);
+                        ptr++;
+                        cluster_size_free -= 128;
+                    }
+                }
+                else
+                {
+                    printf("Nao foi possivel alocar memoria.\n");
+                }
+            }
+            else
+            {
+                printf("Falha no processamento do arquivo.\n");
+            }
+        }
+        else
+        {
+            printf("Falha no processamento do arquivo.\n");
+        }
+        fclose(index_arq);
+    }
+    return qt_reg;
+}
+ int binary_seach_index(INDEX_DATA *data, unsigned int nitems, const char *nome)
+ {
+    unsigned int sup = nitems, inf = 0, mid = 0;
+    int cmp = 0, r = -1;
+    if(data != NULL)
+    {
+        mid = (inf + sup) / 2;
+        cmp = strcmp(nome, data[mid].chaveBusca);
+        while(inf <= sup)
+        {
+            if(cmp == 0)
+            {
+                r = mid;
+                break;
+            }
+            else if(cmp < 0)
+            {
+                sup = (mid - 1);
+            }
+            else if(cmp > 0)
+            {
+                inf = (mid + 1);
+            }
+            mid = (inf + sup) / 2;
+            cmp = strcmp(nome, data[mid].chaveBusca);
+        }
+    }
+    return r;
+ }
