@@ -28,7 +28,7 @@ void init_index_header(HEADER_INDEX *h); // Funcao para inicialiar o registro de
 void write_index_header(const char *file_name, HEADER_INDEX *h); // Funcao utilizada para escrever o arquivo de cabecalho no arquivo de indice, criando-o tambem
 int compare_index_function(const void *a, const void *b); // Funcao utilizada em 'qsort' para ordenar os indices
 int load_index(const char *file_name, INDEX_DATA **data); // Funcao utilizada para carregar o arquivo de indice para 'data'
-int binary_seach_index(INDEX_DATA *data, unsigned int nitems, const char *nome); // Funcao utilizada para buscar o nome no indice carregado na memoria primaria
+int *binary_seach_index(INDEX_DATA *data, unsigned int nitems, int *items_finded, const char *nome); // Funcao utilizada para buscar o nome no indice carregado na memoria primaria. Retorna um conjunto de indices
 
 
 void init_index_header(HEADER_INDEX *h)
@@ -177,24 +177,33 @@ void create_index_file(const char *file_name, const char *data_file_name)
     }
 }
 
-long int search_name_index(const char *file_name, const char *nome)
+long int *search_name_index(const char *file_name, const char *nome, int *items_finded)
 {
-    long int bo = -1;
-    int qt_reg = 0, i = 0;
+    long int *ptr_byte_offsets = NULL;
+    int qt_reg = 0, *ptr_indexes = NULL, qt_indexes = 0;
     HEADER_INDEX header;
     INDEX_DATA *index_data = NULL;
     if(file_name != NULL)
     {
         qt_reg = load_index(file_name, &index_data);
-        i = binary_seach_index(index_data, qt_reg, nome);
-        if(i >= 0)
+        ptr_indexes = binary_seach_index(index_data, qt_reg, &qt_indexes, nome);
+        if(ptr_indexes != NULL)
         {
-            bo = index_data[i].byteOffset;
+            ptr_byte_offsets = (long int *) malloc(sizeof(long int) * qt_indexes);
+            if(ptr_byte_offsets != NULL)
+            {
+                for(int i = 0; i < qt_indexes; i++)
+                {
+                    ptr_byte_offsets[i] = index_data[ptr_indexes[i]].byteOffset;
+                }
+            }
+            free(ptr_indexes);
         }
+        *items_finded = qt_indexes;
         free(index_data);
     }
 
-    return bo;
+    return ptr_byte_offsets;
 }
 
 int compare_index_function(const void *a, const void *b)
@@ -261,10 +270,10 @@ int load_index(const char *file_name, INDEX_DATA **data)
     }
     return qt_reg;
 }
- int binary_seach_index(INDEX_DATA *data, unsigned int nitems, const char *nome)
+ int *binary_seach_index(INDEX_DATA *data, unsigned int nitems, int *items_finded, const char *nome)
  {
-    unsigned int sup = nitems, inf = 0, mid = 0;
-    int cmp = 0, r = -1;
+    unsigned int sup = nitems, inf = 0, mid = 0, qt_reg = 0;
+    int cmp = 0, r = -1, *indexes = NULL, j = 0;
     if(data != NULL)
     {
         mid = (inf + sup) / 2;
@@ -287,6 +296,24 @@ int load_index(const char *file_name, INDEX_DATA **data)
             mid = (inf + sup) / 2;
             cmp = strcmp(nome, data[mid].chaveBusca);
         }
+        if(r != -1)
+        {
+            sup = (mid - 1);
+            while(strcmp(nome, data[sup].chaveBusca) == 0)
+            {
+                sup++;
+                qt_reg++;
+            }
+            *items_finded = qt_reg;
+            indexes = (int *) malloc(sizeof(int) * qt_reg);
+            if(indexes != NULL)
+            {
+                for(int i = (mid - 1); i < sup; i++, j++)
+                {
+                    indexes[j] = i;
+                }
+            }
+        }
     }
-    return r;
+    return indexes;
  }
