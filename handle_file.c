@@ -4404,7 +4404,7 @@ void search_for_nome_index(const char *file_name, const char *index_file_name, c
                 header.status = '0';
                 fwrite(&header.status, sizeof(char), 1, arq);
                 bo_list = search_name_index(index_file_name, nome, &list_size);
-                if(bo_list != NULL)
+                if(bo_list != NULL && list_size > 0)
                 {
                     for(int i = 0; i < list_size; i++)
                     {
@@ -4453,7 +4453,7 @@ void search_for_nome_index(const char *file_name, const char *index_file_name, c
                     printf("Número de páginas de disco para acessar o arquivo de dados: %d\n", list_size);
                     free(bo_list);
                 }
-                else
+                else if(list_size == 0)
                 {
                     printf("Registro inexistente.\n");
                 }
