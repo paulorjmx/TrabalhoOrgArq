@@ -183,23 +183,31 @@ long int *search_name_index(const char *file_name, const char *nome, int *items_
     int qt_reg = 0, *ptr_indexes = NULL, qt_indexes = 0;
     HEADER_INDEX header;
     INDEX_DATA *index_data = NULL;
+    *items_finded = 0;
     if(file_name != NULL)
     {
         qt_reg = load_index(file_name, &index_data);
-        ptr_indexes = binary_seach_index(index_data, qt_reg, &qt_indexes, nome);
-        if(ptr_indexes != NULL)
+        if(qt_reg != -1)
         {
-            ptr_byte_offsets = (long int *) malloc(sizeof(long int) * qt_indexes);
-            if(ptr_byte_offsets != NULL)
+            ptr_indexes = binary_seach_index(index_data, qt_reg, &qt_indexes, nome);
+            if(ptr_indexes != NULL)
             {
-                for(int i = 0; i < qt_indexes; i++)
+                ptr_byte_offsets = (long int *) malloc(sizeof(long int) * qt_indexes);
+                if(ptr_byte_offsets != NULL)
                 {
-                    ptr_byte_offsets[i] = index_data[ptr_indexes[i]].byteOffset;
+                    for(int i = 0; i < qt_indexes; i++)
+                    {
+                        ptr_byte_offsets[i] = index_data[ptr_indexes[i]].byteOffset;
+                    }
                 }
+                free(ptr_indexes);
+                *items_finded = qt_indexes;
             }
-            free(ptr_indexes);
         }
-        *items_finded = qt_indexes;
+        else
+        {
+            *items_finded = -1;
+        }
         free(index_data);
     }
 
@@ -317,3 +325,8 @@ int load_index(const char *file_name, INDEX_DATA **data)
     }
     return indexes;
  }
+
+void remove_index_file(const char *file_name, const char *nome)
+{
+
+}
