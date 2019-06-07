@@ -7,6 +7,7 @@
 
 
 #include "inc/handle_file.h"
+#include "inc/handle_index.h"
 #include "inc/func_aux.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -4380,5 +4381,99 @@ void read_file_header(FILE *fp, FILE_HEADER *header)
         fread(&header->desc_campo4, sizeof(header->desc_campo4), 1, fp);
         fread(&header->tag_campo5, sizeof(header->tag_campo5), 1, fp);
         fread(&header->desc_campo5, sizeof(header->desc_campo5), 1, fp);
+    }
+}
+
+void search_for_nome_index(const char *file_name, const char *index_file_name, const char *nome)
+{
+    char first_byte = '-';
+    long int *bo_list = NULL, index_file_size = 0;
+    int list_size = 0;
+    DATA_REGISTER data;
+    FILE_HEADER header;
+    FILE *arq = NULL, *index_arq = NULL;
+    if(file_name != NULL)
+    {
+        arq = fopen(file_name, "rb");
+        if(arq != NULL)
+        {
+            read_file_header(arq, &header);
+            if(header.status == '1')
+            {
+                rewind(arq);
+                header.status = '0';
+                fwrite(&header.status, sizeof(char), 1, arq);
+                bo_list = search_name_index(index_file_name, nome, &list_size);
+                if(bo_list != NULL)
+                {
+                    for(int i = 0; i < list_size; i++)
+                    {
+                        fseek(arq, bo_list[i], SEEK_SET);
+                        fread(&first_byte, sizeof(char), 1, arq);
+                        read_register(arq, &header, &data);
+                        printf("%s: %d\n", header.desc_campo1, data.id);
+                        printf("%s: ", header.desc_campo2);
+                        if(data.salario <= 0.0)
+                        {
+                            printf("%lf\n", data.salario);
+                        }
+                        printf("%s: ", header.desc_campo3);
+                        if(data.telefone[0] != '\0')
+                        {
+                            printf("%s\n", data.telefone);
+                        }
+                        else
+                        {
+                            printf("valor nao declarado\n");
+                        }
+                        printf("%s: ", header.desc_campo4);
+                        if(data.nome_size > 0)
+                        {
+                            printf("%s\n", data.nome);
+                        }
+                        else
+                        {
+                            printf("valor nao declarado\n");
+                        }
+                        printf("%s: ", header.desc_campo5);
+                        if(data.cargo_size > 0)
+                        {
+                            printf("%s\n", data.cargo);
+                        }
+                        else
+                        {
+                            printf("valor nao declarado\n");
+                        }
+                        printf("\n");
+                    }
+                    index_arq = fopen(index_file_name, "ab");
+                    index_file_size = ftell(index_arq);
+                    fclose(index_arq);
+                    printf("Número de páginas de disco para carregar o arquivo de índice: %d\n", (index_file_size / 32000) + 1);
+                    printf("Número de páginas de disco para acessar o arquivo de dados: %d\n", list_size);
+                    free(bo_list);
+                }
+                else
+                {
+                    printf("Registro inexistente.\n");
+                }
+            }
+            else
+            {
+                printf("Falha no processamento do arquivo.\n");
+            }
+            rewind(arq);
+            header.status = '1';
+            fwrite(&header.status, sizeof(char), 1, arq);
+        }
+        else
+        {
+            printf("Falha no processamento do arquivo.\n");
+        }
+        fclose(arq);
+    }
+    else
+    {
+        printf("Falha no processamento do arquivo.\n");
     }
 }
