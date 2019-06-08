@@ -14,7 +14,7 @@
         void search_for_salario(const char *file_name, double salario); //  Funcao que recupera o registro que tem como campo incomum o salario procurado
         void search_for_telefone(const char *file_name, const char *telefone); //  Funcao que recupera o registro que tem como campo incomum o telefone procurado
         void search_for_nome(const char *file_name, const char *nome); //  Funcao que recupera o registro que tem como campo incomum o nome procurado
-        void search_for_nome_index(const char *file_name, const char *index_file_name, const char *nome); //  Funcao que recupera o registro que tem como campo incomum o nome procurado utilizando o arquivo de indice fortemente ligado 
+        void search_for_nome_index(const char *file_name, const char *index_file_name, const char *nome); //  Funcao que recupera o registro que tem como campo incomum o nome procurado utilizando o arquivo de indice fortemente ligado
         void search_for_cargo(const char *file_name, const char *cargo); //  Funcao que recupera o registro que tem como campo incomum o cargo procurado
         int remove_by_id(const char *file_name, int id); // Funcao que remove um registro baseado em seu idServidor
         int remove_by_salario(const char *file_name, double salario); // Funcao que remove um registro baseado no campo salario
