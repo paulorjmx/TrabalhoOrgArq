@@ -46,7 +46,7 @@ void init_file_header(FILE_HEADER *header, char *desc); // Funcao que inicializa
 void print_file_header(FILE_HEADER header); // Funcao utilidade que mostra na tela todos os campos do registro de cabecalho
 void init_file_list(FILE_LIST *l, int list_size); // Funcao utilizada para inicializar a lista de registros removidos
 int binary_search(FILE_LIST *l, int list_size); // Funcao utilizada para buscar na lista de registros removidos, seguindo a abordagem best fit
-void insert_full_disk_page(FILE *file, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo); // Funcao utilizada para inserir o registro em uma pagina de disco
+long int insert_full_disk_page(FILE *file, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo); // Funcao utilizada para inserir o registro em uma pagina de disco
 void edit_register(const char *file_name, const char *campo, void *valor_campo, long int comeco_registro, char tag_campo4, char tag_campo5); // Funcao utilizada para atualizar um campo no registro que tem comeco em comeco_registro
 void *get_user_clean_input(const char *campo); // Funcao utilizada para entrada do usuario removendo aspas
 int compare_data_register(const void *a, const void *b); // Funcao de comparacao utilizada pelo qsort
@@ -2264,14 +2264,14 @@ int remove_by_cargo(const char *file_name, const char *cargo)
     return r;
 }
 
-int insert_bin(const char *file_name, int id, double salario, const char *telefone, const char *nome, const char *cargo)
+long int insert_bin(const char *file_name, int id, double salario, const char *telefone, const char *nome, const char *cargo)
 {
     FILE_HEADER header;
     FILE_LIST list[LIST_TOTAL_SIZE];
     FILE *arq = NULL;
     char nome_servidor[200], cargo_servidor[500], telefone_servidor[15], removido_token = '-',  byte = '-', bloat = '@';
-    int  r = 0, new_reg_size = 34, reg_size = 0, disk_pages = 0, ptr_list = -1, nome_servidor_size = 0, cargo_servidor_size = 0, min = -1, diff_result = 0, j = 0;
-    long int encadeamento_lista = -1, file_ptr = -1, file_size = 0, last_disk_page_size = 0;
+    int  new_reg_size = 34, reg_size = 0, disk_pages = 0, ptr_list = -1, nome_servidor_size = 0, cargo_servidor_size = 0, min = -1, diff_result = 0, j = 0;
+    long int encadeamento_lista = -1, file_ptr = -1, file_size = 0, last_disk_page_size = 0, r = 0;
     double qt_disk_pages = 0.0, total_disk_pages = 0.0;
     if(file_name != NULL)
     {
@@ -2356,6 +2356,7 @@ int insert_bin(const char *file_name, int id, double salario, const char *telefo
                         }
                         if(min != -1)
                         {
+                            r = list[min].byte_offset;
                             fseek(arq, list[min].byte_offset, SEEK_SET);
                             fwrite(&removido_token, sizeof(char), 1, arq);
                             fseek(arq, sizeof(int), SEEK_CUR); // Nao escreve o tamanho do novo registro
@@ -2379,13 +2380,13 @@ int insert_bin(const char *file_name, int id, double salario, const char *telefo
                         }
                         else // Se nao achou na lista um registro que caiba o registro a ser inserido
                         {
-                            insert_full_disk_page(arq, id, salario, telefone, header.tag_campo4, nome, header.tag_campo5, cargo);
+                            r = insert_full_disk_page(arq, id, salario, telefone, header.tag_campo4, nome, header.tag_campo5, cargo);
                         }
                     }
                     else
                     {
                         // Lista vazia
-                        insert_full_disk_page(arq, id, salario, telefone, header.tag_campo4, nome, header.tag_campo5, cargo);
+                        r = insert_full_disk_page(arq, id, salario, telefone, header.tag_campo4, nome, header.tag_campo5, cargo);
                     }
                     // Atualiza a lista
                     for(int k = 0; k < ptr_list; k++)
@@ -2434,11 +2435,11 @@ int insert_bin(const char *file_name, int id, double salario, const char *telefo
     return r;
 }
 
-void insert_full_disk_page(FILE *file, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo)
+long int insert_full_disk_page(FILE *file, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo)
 {
     char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], removido_token = '-', byte = '-', bloat = '@';
     int new_reg_size = 34, reg_size = 0, nome_servidor_size = 0, cargo_servidor_size = 0;
-    long int encadeamento_lista = -1, file_ptr = -1, file_size = 0, last_disk_page_size = 0;
+    long int encadeamento_lista = -1, file_ptr = -1, file_size = 0, last_disk_page_size = 0, reg_pos = -1;
     double qt_disk_pages = 0.0, total_disk_pages = 0.0;
 
     if(file != NULL)
@@ -2501,6 +2502,7 @@ void insert_full_disk_page(FILE *file, int id, double salario, const char *telef
         }
         fseek(file, 0, SEEK_END); // Vai ate o fim do arquivo
         // Faz a insercao do registro novo.
+        reg_pos = ftell(file);
         fwrite(&removido_token, sizeof(char), 1, file);
         fwrite(&new_reg_size, sizeof(int), 1, file);
         fwrite(&encadeamento_lista, sizeof(long int), 1, file);
@@ -2524,6 +2526,7 @@ void insert_full_disk_page(FILE *file, int id, double salario, const char *telef
     {
         printf("Falha no processamento do arquivo.\n");
     }
+    return reg_pos;
 }
 
 int edit_by_id(const char *file_name, int id, const char *campo)
