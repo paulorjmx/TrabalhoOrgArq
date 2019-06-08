@@ -452,3 +452,54 @@ void write_index_data(const char *file_name, INDEX_DATA *data, unsigned int nite
         fclose(index_arq);
     }
 }
+
+int insert_index_file(const char *file_name, INDEX_DATA **data, unsigned int *nitems, const char *nome, long int byte_offset)
+{
+    int i = 0, r = -1;
+    FILE *index_arq = NULL;
+    HEADER_INDEX header;
+    if(file_name != NULL)
+    {
+        read_index_header(file_name, &header);
+        if(header.status == '1')
+        {
+            (*data) = (INDEX_DATA *) realloc((*data), sizeof(INDEX_DATA) * ((*nitems) + 1));
+            if((*data) != NULL)
+            {
+                i = ((*nitems) - 1);
+                while((strcmp(nome, (*data)[i].chaveBusca) < 0) && i >= 0)
+                {
+                    (*data)[i + 1] = (*data)[i];
+                    i--;
+                }
+                if(strcmp(nome, (*data)[i].chaveBusca) == 0)
+                {
+                    while(byte_offset < (*data)[i].byteOffset)
+                    {
+                        (*data)[i + 1] = (*data)[i];
+                        i--;
+                    }
+                }
+                memset((*data)[i + 1].chaveBusca, '@', sizeof((*data)[i + 1].chaveBusca));
+                strncpy((*data)[i + 1].chaveBusca, nome, (strlen(nome) + 1));
+                (*data)[i + 1].byteOffset = byte_offset;
+                (*nitems)++;
+                index_arq = fopen(file_name, "r+b");
+                header.nroReg++;
+                fwrite(&header.status, sizeof(char), 1, index_arq);
+                fwrite(&header.nroReg, sizeof(int), 1, index_arq);
+                fclose(index_arq);
+                r = 0;
+            }
+            else
+            {
+                printf("Falha ao realocar memoria.\n");
+            }
+        }
+        else
+        {
+            printf("Falha no processamento do arquivo.\n");
+        }
+    }
+    return r;
+}
