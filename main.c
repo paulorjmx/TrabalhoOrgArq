@@ -10,11 +10,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include "inc/handle_file.h"
+#include "inc/handle_index.h"
 #include "inc/func_aux.h"
 
 int main(int argc, char const *argv[])
 {
-    int option = -1, idServidor = 0, n = 0, r = 0;
+    INDEX_DATA *index_data = NULL;
+    int option = -1, idServidor = 0, n = 0, r = 0, qt_reg_index = 0;
+    long int byte_offset = 0;
     double salarioServidor = 0.0;
     char salario[300], cargo[500], nome[200], telefone[15], query_field[20];
     char  csv_file_name[100], data_file_name[100], update_field[20], data_file_name2[100], data_file_name3[100];
@@ -266,7 +269,105 @@ int main(int argc, char const *argv[])
 
         case 10:
             scanf("%s", data_file_name);
-            binarioNaTela2(data_file_name);
+            scanf("%s", data_file_name2);
+            create_index_file(data_file_name, data_file_name2);
+            binarioNaTela2(data_file_name2);
+            break;
+
+        case 11:
+            scanf("%s", data_file_name);
+            scanf("%s", data_file_name2);
+            scanf("%s", query_field);
+            if(strcmp(query_field, "nomeServidor") == 0)
+            {
+                scan_quote_string(nome);
+                if(strcmp(nome, "NULO") == 0)
+                {
+                    memset(nome, 0x00, sizeof(nome));
+                }
+                search_for_nome_index(data_file_name, data_file_name2, nome);
+            }
+            break;
+
+        case 12:
+            scanf("%s", data_file_name);
+            scanf("%s", data_file_name2);
+            scanf("%d", &n);
+            qt_reg_index = load_index(data_file_name2, &index_data);
+            if(qt_reg_index > 0)
+            {
+                for(int i = 0; i < n; i++)
+                {
+                    scanf("%s", query_field);
+                    if(strcmp(query_field, "nomeServidor") == 0)
+                    {
+                        scan_quote_string(nome);
+                        if(strcmp(nome, "NULO") == 0)
+                        {
+                            memset(nome, 0x00, sizeof(nome));
+                        }
+                        r = remove_by_nome(data_file_name, nome);
+                        if(r != -1)
+                        {
+                            r = remove_index_file(data_file_name2, index_data, qt_reg_index, nome);
+                        }
+                    }
+                }
+                write_index_data(data_file_name2, index_data, qt_reg_index);
+                free(index_data);
+            }
+            break;
+
+        case 13:
+            scanf("%s", data_file_name);
+            scanf("%s", data_file_name2);
+            scanf("%d", &n);
+            qt_reg_index = load_index(data_file_name2, &index_data);
+            if(qt_reg_index > 0)
+            {
+                for(int i = 0; i < n; i++)
+                {
+                    memset(telefone, 0x00, sizeof(telefone));
+                    memset(nome, 0x00, sizeof(nome));
+                    memset(cargo, 0x00, sizeof(cargo));
+                    memset(salario, 0x00, sizeof(salario));
+                    scanf("%d", &idServidor);
+                    scanf("%s", salario);
+                    scan_quote_string(telefone);
+                    scan_quote_string(nome);
+                    scan_quote_string(cargo);
+                    if(strcmp(telefone, "NULO") == 0)
+                    {
+                        memset(telefone, 0x00, sizeof(telefone));
+                    }
+                    if(strcmp(nome, "NULO") == 0)
+                    {
+                        memset(nome, 0x00, sizeof(nome));
+                    }
+                    if(strcmp(cargo, "NULO") == 0)
+                    {
+                        memset(cargo, 0x00, sizeof(cargo));
+                    }
+                    if(strcmp(salario, "NULO") == 0)
+                    {
+                        salarioServidor = -1.0;
+                    }
+                    else
+                    {
+                        salarioServidor = strtod(salario, NULL);
+                    }
+                    byte_offset = insert_bin(data_file_name, idServidor, salarioServidor, telefone, nome, cargo);
+                    if(byte_offset != -1)
+                    {
+                        if(nome[0] != '\0')
+                        {
+                            insert_index_file(data_file_name2, &index_data, &qt_reg_index, nome, byte_offset);
+                        }
+                    }
+                }
+                write_index_data(data_file_name2, index_data, qt_reg_index);
+                free(index_data);
+            }
             break;
 
         default:
