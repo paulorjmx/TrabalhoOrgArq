@@ -4474,6 +4474,9 @@ int search_for_nome_index(const char *file_name, const char *index_file_name, co
                         printf("\n");
                     }
                     free(bo_list);
+                    index_arq = fopen(index_file_name, "ab"); // Abre o arquivo de indice com o ponteiro no final
+                    index_file_size = ftell(index_arq); // Armazena o tamanho do arquivo
+                    fclose(index_arq);
                     printf("Número de páginas de disco para carregar o arquivo de índice: %ld\n", (index_file_size / 32000) + 1); // Calcula quantas paginas de disco o arquivo de indice tem
                     printf("Número de páginas de disco para acessar o arquivo de dados: %d\n", qt_disk_pages); // Quantidade de pagina de disco acessadas do arquivo de dados
                 }
@@ -4481,17 +4484,14 @@ int search_for_nome_index(const char *file_name, const char *index_file_name, co
                 {
                     printf("Registro inexistente.\n");
                 }
-                index_arq = fopen(index_file_name, "ab"); // Abre o arquivo de indice com o ponteiro no final
-                index_file_size = ftell(index_arq); // Armazena o tamanho do arquivo
-                fclose(index_arq);
+                rewind(arq);
+                header.status = '1';
+                fwrite(&header.status, sizeof(char), 1, arq);
             }
             else
             {
                 printf("Falha no processamento do arquivo.\n");
             }
-            rewind(arq);
-            header.status = '1';
-            fwrite(&header.status, sizeof(char), 1, arq);
         }
         else
         {
