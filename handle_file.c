@@ -4441,6 +4441,10 @@ int search_for_nome_index(const char *file_name, const char *index_file_name, co
                         printf("%s: ", header.desc_campo2);
                         if(data.salario <= 0.0)
                         {
+                            printf("valor nao declarado\n");
+                        }
+                        else
+                        {
                             printf("%lf\n", data.salario);
                         }
                         printf("%s: ", header.desc_campo3);
