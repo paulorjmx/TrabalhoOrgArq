@@ -5,10 +5,10 @@
 #                                           #
 ###########################################*/
 
+#include "inc/handle_index.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "inc/handle_index.h"
 
 #define INDEX_CLUSTER_SIZE 32000
 
@@ -85,7 +85,7 @@ void create_index_file(const char *file_name, const char *data_file_name)
     // 'register_bytes_readed' armazena a quantidade de bytes lidos do registro do arquivo de dados
     // 'var_field_size' armazena a quantidade de bytes dos campos variaveis (nomeServidor e cargoServidor)
     // 'ptr' aponta para a primeira posicao livre de 'index_data'
-    int cluster_size_free = INDEX_CLUSTER_SIZE, reg_size = 0, register_bytes_readed = 0, var_field_size, ptr = 0;
+    int cluster_size_free = INDEX_CLUSTER_SIZE, reg_size = 0, register_bytes_readed = 0, var_field_size = 0, ptr = 0, qt_r = 0;
     // 'nome' e 'cargo' servem para armazenar os valores do nomeServidor e cargoServidor lidos do arquivo de dados
     char nome[120], cargo[200];
     // 'removido_token' eh para ler o primeiro byte do registro
@@ -152,6 +152,7 @@ void create_index_file(const char *file_name, const char *data_file_name)
                                         fread(nome, (var_field_size - 1), 1, arq);
                                         strcpy(index_data[ptr].chaveBusca, nome); // Salva o nome tambem
                                         ptr++;
+                                        qt_r++;
                                     }
                                     else if(tag_campo == tag_campo5) // Se o campo for do tipo cargoServidor
                                     {
@@ -161,12 +162,19 @@ void create_index_file(const char *file_name, const char *data_file_name)
                                 }
                             }
                         }
-                        else if(removido_token == '@') // Se eh um registro removido
+                        else if(removido_token == '*') // Se eh um registro removido
                         {
                             fseek(arq, reg_size, SEEK_CUR); // Pula o registro removido
                         }
                     }
                 }
+                FILE *t = fopen("binario-2-ge.index", "r+b");
+                fread(&header.status, sizeof(char), 1, t);
+                fread(&header.nroReg, sizeof(int), 1, t);
+                fclose(t);
+                printf("ORIGINAL: %d", header.nroReg);
+                printf("%d\n", qt_r);
+                printf("%d\n", ptr);
                 header.status = '0';
                 header.nroReg = ptr;
                 write_index_header(file_name, &header); // Cria e escreve o arquivo de indice
@@ -197,12 +205,12 @@ void create_index_file(const char *file_name, const char *data_file_name)
             }
             else
             {
-                printf("Falha no processamento do arquivo.\n");
+                printf("Falha no processamento do arquivo1.\n");
             }
         }
         else
         {
-            printf("Falha no processamento do arquivo.\n");
+            printf("Falha no processamento do arquivo2.\n");
         }
         fclose(index_arq);
         fclose(arq);
