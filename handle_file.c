@@ -45,7 +45,7 @@ void read_file_header(FILE *fp, FILE_HEADER *header); // Funcao que le o registr
 void init_file_header(FILE_HEADER *header, char *desc); // Funcao que inicializa a estrutura de dados FILE_HEADER
 void print_file_header(FILE_HEADER header); // Funcao utilidade que mostra na tela todos os campos do registro de cabecalho
 void init_file_list(FILE_LIST *l, int list_size); // Funcao utilizada para inicializar a lista de registros removidos
-int binary_search(FILE_LIST *l, int list_size); // Funcao utilizada para buscar na lista de registros removidos, seguindo a abordagem best fit
+// int binary_search(FILE_LIST *l, int list_size); // Funcao utilizada para buscar na lista de registros removidos, seguindo a abordagem best fit
 long int insert_full_disk_page(FILE *file, int id, double salario, const char *telefone, char tag_campo4, const char *nome, char tag_campo5, const char *cargo); // Funcao utilizada para inserir o registro em uma pagina de disco
 void edit_register(const char *file_name, const char *campo, void *valor_campo, long int comeco_registro, char tag_campo4, char tag_campo5); // Funcao utilizada para atualizar um campo no registro que tem comeco em comeco_registro
 void *get_user_clean_input(const char *campo); // Funcao utilizada para entrada do usuario removendo aspas
@@ -1038,7 +1038,7 @@ void search_for_telefone(const char *file_name, const char *telefone)
     }
 }
 
-void search_for_nome(const char *file_name, const char *nome)
+int search_for_nome(const char *file_name, const char *nome)
 {
     FILE_HEADER header;
     FILE *arq = NULL;
@@ -1213,6 +1213,7 @@ void search_for_nome(const char *file_name, const char *nome)
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    return disk_pages;
 }
 
 void search_for_cargo(const char *file_name, const char *cargo)
@@ -1573,6 +1574,7 @@ int remove_by_id(const char *file_name, int id)
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    return r;
 }
 
 int remove_by_salario(const char *file_name, double salario)
@@ -1892,6 +1894,7 @@ int remove_by_telefone(const char *file_name, const char *telefone)
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    return r;
 }
 
 
@@ -2078,6 +2081,7 @@ int remove_by_nome(const char *file_name, const char *nome)
             printf("Falha no processamento do arquivo.\n");
         }
     }
+    return r;
 }
 
 int remove_by_cargo(const char *file_name, const char *cargo)
@@ -2271,6 +2275,7 @@ long int insert_bin(const char *file_name, int id, double salario, const char *t
     FILE *arq = NULL;
     char nome_servidor[200], cargo_servidor[500], telefone_servidor[15], removido_token = '-',  byte = '-', bloat = '@';
     int  new_reg_size = 34, reg_size = 0, disk_pages = 0, ptr_list = -1, nome_servidor_size = 0, cargo_servidor_size = 0, min = -1, diff_result = 0, j = 0;
+    // 'r' retorna o byte offset do comeco do registro inserido
     long int encadeamento_lista = -1, file_ptr = -1, file_size = 0, last_disk_page_size = 0, r = 0;
     double qt_disk_pages = 0.0, total_disk_pages = 0.0;
     if(file_name != NULL)
@@ -2439,6 +2444,7 @@ long int insert_full_disk_page(FILE *file, int id, double salario, const char *t
 {
     char telefone_servidor[15], nome_servidor[200], cargo_servidor[500], removido_token = '-', byte = '-', bloat = '@';
     int new_reg_size = 34, reg_size = 0, nome_servidor_size = 0, cargo_servidor_size = 0;
+    // 'reg_pos' armazena o byte offset do comeco do registro recem inserido
     long int encadeamento_lista = -1, file_ptr = -1, file_size = 0, last_disk_page_size = 0, reg_pos = -1;
     double qt_disk_pages = 0.0, total_disk_pages = 0.0;
 
@@ -3508,13 +3514,13 @@ void init_file_list(FILE_LIST *l, int list_size)
     }
 }
 
-int binary_search(FILE_LIST *l, int list_size)
-{
-    if(l != NULL)
-    {
-
-    }
-}
+// int binary_search(FILE_LIST *l, int list_size)
+// {
+//     if(l != NULL)
+//     {
+//
+//     }
+// }
 
 void *get_user_clean_input(const char *campo)
 {
@@ -4387,33 +4393,50 @@ void read_file_header(FILE *fp, FILE_HEADER *header)
     }
 }
 
-void search_for_nome_index(const char *file_name, const char *index_file_name, const char *nome)
+int search_for_nome_index(const char *file_name, const char *index_file_name, const char *nome)
 {
+    // 'first_byte' eh utilizado para ler o primeiro byte do registro
     char first_byte = '-';
+    // 'bo_list' eh um array dos bytes offset dos registros de dados encontrados
+    // 'index_file_size' armazena o tamanho do arquivo de indice
     long int *bo_list = NULL, index_file_size = 0;
-    int list_size = 0;
+    // 'list_size' eh armazena o tamanho (quantidade de elementos) de bo_list
+    // 'last_disk_page' armazena o numero da ultima pagina de disco acessada
+    // 'disk_page_n' armazena o resultado do calculo para saber o numero da pagina de disco atualmente acessada
+    // 'qt_disk_pages' armazena a quantidade de paginas de disco acessadas do arquivo de dados
+    int list_size = 0, last_disk_page = 1, disk_page_n = 0, qt_disk_pages = 1;
+    // 'data' eh a estrutura de dados utilizada para armazenar um registro lido do arquivo de dados
     DATA_REGISTER data;
+    // 'header' armazena o registro de cabecalho do arquivo de dados
     FILE_HEADER header;
+    // 'arq' e 'index_arq' sao ponteiros para os arquivos de dados e de indice, respectivamente
     FILE *arq = NULL, *index_arq = NULL;
     if(file_name != NULL)
     {
         arq = fopen(file_name, "rb");
         if(arq != NULL)
         {
-            read_file_header(arq, &header);
+            read_file_header(arq, &header); //  Le o registro de cabecalho do arquivo de dados
             if(header.status == '1')
             {
                 rewind(arq);
                 header.status = '0';
                 fwrite(&header.status, sizeof(char), 1, arq);
-                bo_list = search_name_index(index_file_name, nome, &list_size);
+                bo_list = search_name_index(index_file_name, nome, &list_size); // Procura no arquivo de indice registros que contenha 'nome'
                 if(bo_list != NULL && list_size > 0)
                 {
                     for(int i = 0; i < list_size; i++)
                     {
-                        fseek(arq, bo_list[i], SEEK_SET);
-                        fread(&first_byte, sizeof(char), 1, arq);
-                        read_register(arq, &header, &data);
+                        fseek(arq, bo_list[i], SEEK_SET); // Vai ate o registro
+                        disk_page_n = (bo_list[i] / CLUSTER_SIZE); // Calcula o numero da pagina de disco em que o registro se encontra
+                        if(last_disk_page != disk_page_n) // Se for diferente da ultima pagina de disco acessada
+                        {
+                            qt_disk_pages++; // Acessa uma nova pagina de disco
+                            last_disk_page = disk_page_n; // Esta se torna a nova ultima pagina de disco acessada
+                        }
+                        fread(&first_byte, sizeof(char), 1, arq); // Le o primeiro byte do registro de dados
+                        read_register(arq, &header, &data); // Le o restante do registro
+                        // Exibe as informacoes do registro de dados
                         printf("%s: %d\n", header.desc_campo1, data.id);
                         printf("%s: ", header.desc_campo2);
                         if(data.salario <= 0.0)
@@ -4449,17 +4472,17 @@ void search_for_nome_index(const char *file_name, const char *index_file_name, c
                         }
                         printf("\n");
                     }
-                    index_arq = fopen(index_file_name, "ab");
-                    index_file_size = ftell(index_arq);
-                    fclose(index_arq);
-                    printf("Número de páginas de disco para carregar o arquivo de índice: %d\n", (index_file_size / 32000) + 1);
-                    printf("Número de páginas de disco para acessar o arquivo de dados: %d\n", list_size);
                     free(bo_list);
                 }
                 else if(list_size == 0)
                 {
                     printf("Registro inexistente.\n");
                 }
+                index_arq = fopen(index_file_name, "ab"); // Abre o arquivo de indice com o ponteiro no final
+                index_file_size = ftell(index_arq); // Armazena o tamanho do arquivo
+                fclose(index_arq);
+                printf("Número de páginas de disco para carregar o arquivo de índice: %ld\n", (index_file_size / 32000) + 1); // Calcula quantas paginas de disco o arquivo de indice tem
+                printf("Número de páginas de disco para acessar o arquivo de dados: %d\n", qt_disk_pages); // Quantidade de pagina de disco acessadas do arquivo de dados
             }
             else
             {
@@ -4479,4 +4502,5 @@ void search_for_nome_index(const char *file_name, const char *index_file_name, c
     {
         printf("Falha no processamento do arquivo.\n");
     }
+    return qt_disk_pages;
 }
