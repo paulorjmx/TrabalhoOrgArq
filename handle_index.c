@@ -88,10 +88,19 @@ void create_index_file(const char *file_name, const char *data_file_name)
     int cluster_size_free = INDEX_CLUSTER_SIZE, reg_size = 0, register_bytes_readed = 0, var_field_size, ptr = 0;
     // 'nome' e 'cargo' servem para armazenar os valores do nomeServidor e cargoServidor lidos do arquivo de dados
     char nome[120], cargo[200];
+    // 'removido_token' eh para ler o primeiro byte do registro
+    // 'status_arq' eh o status do arquivo de dado
+    // 'tag_campo' armazena a tag dos campos variaveis
+    // 'tag_campo4' e 'tag_campo5' armazenam as tags lidas do registro de cabecalho do arquivo de dados
     char removido_token = '-', status_arq = '0', bloat = '@', tag_campo = '*', tag_campo4 = '#', tag_campo5 = '$';
+    // 'index_arq' eh o arquivo de indice secundario fortemente ligado
+    // 'arq' eh o arquivo de dados
     FILE *index_arq = NULL, *arq = NULL;
-    long int bo = 0, el = 0;
+    // 'bo' guar o byte offset do comeco de cada registro lido do arquivo de dados
+    long int bo = 0;
+    // 'header' eh o header do arquivo de registro
     HEADER_INDEX header;
+    // 'index_data' sao os registros que serao inseridos no arquivo de indice secundario fortemente ligado
     INDEX_DATA index_data[6000];
     if((file_name != NULL) && (data_file_name != NULL))
     {
@@ -101,29 +110,29 @@ void create_index_file(const char *file_name, const char *data_file_name)
             fread(&status_arq, sizeof(char), 1, arq);
             if(status_arq == '1')
             {
-                fseek(arq, 131, SEEK_CUR);
+                fseek(arq, 131, SEEK_CUR); // Pula para recuperar a tagCampo4 do arquivo de dados
                 fread(&tag_campo4, sizeof(char), 1, arq);
-                fseek(arq, 40, SEEK_CUR);
+                fseek(arq, 40, SEEK_CUR); // Pula para recuperar a tagCampo4 do arquivo de dados
                 fread(&tag_campo5, sizeof(char), 1, arq);
-                fseek(arq, INDEX_CLUSTER_SIZE, SEEK_SET);
+                fseek(arq, INDEX_CLUSTER_SIZE, SEEK_SET); // Pula a pagina de disco em que se encontra o cabecalho
                 while (1)
                 {
-                    memset(&index_data[ptr].chaveBusca, '@', sizeof(index_data[ptr].chaveBusca));
-                    register_bytes_readed = 34;
+                    memset(&index_data[ptr].chaveBusca, '@', sizeof(index_data[ptr].chaveBusca)); // Preenche chaveBusca com '@'
+                    register_bytes_readed = 34; // Atribui 34 para pular os campos de tamanho fixo
                     var_field_size = 0;
-                    bo = ftell(arq);
-                    fread(&removido_token, sizeof(char), 1, arq);
+                    bo = ftell(arq); // Armazena o endereco do comeco do registro
+                    fread(&removido_token, sizeof(char), 1, arq); // Le o primeiro byte do registro
                     if(feof(arq) != 0)
                     {
                         break;
                     }
                     else
                     {
-                        fread(&reg_size, sizeof(int), 1, arq);
-                        if(removido_token == '-')
+                        fread(&reg_size, sizeof(int), 1, arq); // Le o tamanho do registro
+                        if(removido_token == '-') // Se o registro nao eh um registro removido
                         {
                             fseek(arq, 34, SEEK_CUR); // Pula para o comeco dos campos variaveis
-                            while(register_bytes_readed < reg_size)
+                            while(register_bytes_readed < reg_size) // Loop para ler os campos de tamanho variavel
                             {
                                 fread(&bloat, sizeof(char), 1, arq);
                                 if(bloat == '@')
@@ -137,14 +146,14 @@ void create_index_file(const char *file_name, const char *data_file_name)
                                     register_bytes_readed += sizeof(int);
                                     fread(&tag_campo, sizeof(char), 1, arq);
                                     register_bytes_readed += sizeof(char);
-                                    if(tag_campo == tag_campo4)
+                                    if(tag_campo == tag_campo4) // Se o campo for do tipo nomeServidor
                                     {
-                                        index_data[ptr].byteOffset = bo;
+                                        index_data[ptr].byteOffset = bo; // Salva o byte offset do comeco do arquivo na estrutura que sera armazenada no arquivo de indice
                                         fread(nome, (var_field_size - 1), 1, arq);
-                                        strcpy(index_data[ptr].chaveBusca, nome);
+                                        strcpy(index_data[ptr].chaveBusca, nome); // Salva o nome tambem
                                         ptr++;
                                     }
-                                    else if(tag_campo == tag_campo5)
+                                    else if(tag_campo == tag_campo5) // Se o campo for do tipo cargoServidor
                                     {
                                         fread(cargo, (var_field_size - 1), 1, arq);
                                     }
@@ -152,30 +161,31 @@ void create_index_file(const char *file_name, const char *data_file_name)
                                 }
                             }
                         }
-                        else if(removido_token == '@')
+                        else if(removido_token == '@') // Se eh um registro removido
                         {
-                            fseek(arq, reg_size, SEEK_CUR);
+                            fseek(arq, reg_size, SEEK_CUR); // Pula o registro removido
                         }
                     }
                 }
                 header.status = '0';
                 header.nroReg = ptr;
-                write_index_header(file_name, &header);
+                write_index_header(file_name, &header); // Cria e escreve o arquivo de indice
                 index_arq = fopen(file_name, "r+b");
                 if(index_arq != NULL)
                 {
-                    fseek(index_arq, INDEX_CLUSTER_SIZE, SEEK_SET);
-                    qsort(index_data, ptr, sizeof(INDEX_DATA), compare_index_function);
+                    fseek(index_arq, INDEX_CLUSTER_SIZE, SEEK_SET); // Pula a pagina de disco que contem o cabecalho
+                    qsort(index_data, ptr, sizeof(INDEX_DATA), compare_index_function); // Ordena a estrutura que contem os indices que serao armazenados no arquivo
                     for(int i = 0; i < ptr; i++)
                     {
-                        if((cluster_size_free - 128) < 0)
+                        if((cluster_size_free - 128) < 0) // Se nao ha espaco na pagina de disco
                         {
-                            for(int j = 0; j < cluster_size_free; j++)
+                            for(int j = 0; j < cluster_size_free; j++) // Preenche o resto da pagina de disco com lixo
                             {
                                 fwrite(&bloat, sizeof(char), 1, index_arq);
                             }
-                            cluster_size_free = INDEX_CLUSTER_SIZE;
+                            cluster_size_free = INDEX_CLUSTER_SIZE; // Cria uma nova pagina de disco
                         }
+                        // Escreve o registro de indice no arquivo de indice
                         fwrite(&index_data[i].chaveBusca, sizeof(index_data[i].chaveBusca), 1, index_arq);
                         fwrite(&index_data[i].byteOffset, sizeof(long int), 1, index_arq);
                         cluster_size_free -= 128;
@@ -201,25 +211,30 @@ void create_index_file(const char *file_name, const char *data_file_name)
 
 long int *search_name_index(const char *file_name, const char *nome, int *items_finded)
 {
+    // 'ptr_byte_offsets' armazena os bytes offset dos registros de indices encontrados que contem 'nome'
     long int *ptr_byte_offsets = NULL;
+    // 'qt_reg' armazena a quantidade de registros carregados na memoria
+    // 'qt_indexes' armazena a quantidade que 'ptr_byte_offsets' tem
+    // 'ptr_indexes' contem as posicoes de 'index_data' que contem 'nome'
     int qt_reg = 0, *ptr_indexes = NULL, qt_indexes = 0;
     HEADER_INDEX header;
+    // 'index_data' armazena o arquivo de indice em memoria primaria
     INDEX_DATA *index_data = NULL;
     *items_finded = 0;
     if(file_name != NULL)
     {
-        qt_reg = load_index(file_name, &index_data);
+        qt_reg = load_index(file_name, &index_data); // Carrega o indice na memoria
         if(qt_reg != -1)
         {
-            ptr_indexes = binary_seach_index(index_data, qt_reg, &qt_indexes, nome);
+            ptr_indexes = binary_seach_index(index_data, qt_reg, &qt_indexes, nome); // Busca nos registros de indice que contem 'nome' na memoria primaria
             if(ptr_indexes != NULL)
             {
-                ptr_byte_offsets = (long int *) malloc(sizeof(long int) * qt_indexes);
+                ptr_byte_offsets = (long int *) malloc(sizeof(long int) * qt_indexes); // Aloca memoria para os bytes offsets encontrados em 'index_data'
                 if(ptr_byte_offsets != NULL)
                 {
-                    for(int i = 0; i < qt_indexes; i++)
+                    for(int i = 0; i < qt_indexes; i++) // Para cada nome encontrado no indice secundario, recupera o byte offset
                     {
-                        ptr_byte_offsets[i] = index_data[ptr_indexes[i]].byteOffset;
+                        ptr_byte_offsets[i] = index_data[ptr_indexes[i]].byteOffset; // Armazena-os em 'ptr_byte_offsets'
                     }
                 }
                 free(ptr_indexes);
@@ -248,13 +263,17 @@ int compare_index_function(const void *a, const void *b)
 
 int load_index(const char *file_name, INDEX_DATA **data)
 {
+    // 'bloat' eh utilizado para ler lixo no fim de paginas de disco
     char bloat = '@';
+    // 'qt_reg' armazena a quantidade de registros carregados na memoria
+    // 'cluster_size_free' mantem a quantidade de bytes livres na pagina de disco
+    // 'ptr' eh utilizado para percorrer 'data'
     int qt_reg = -1, cluster_size_free = INDEX_CLUSTER_SIZE, ptr = 0;
     HEADER_INDEX header;
     FILE *index_arq = NULL;
     if(file_name != NULL && data != NULL)
     {
-        index_arq = fopen(file_name, "rb");
+        index_arq = fopen(file_name, "rb"); // Abre o arquivo de indices
         if(index_arq != NULL)
         {
             fread(&header.status, sizeof(char), 1, index_arq);
@@ -262,13 +281,13 @@ int load_index(const char *file_name, INDEX_DATA **data)
             {
                 fread(&header.nroReg, sizeof(int), 1, index_arq);
                 fseek(index_arq, INDEX_CLUSTER_SIZE, SEEK_SET);
-                qt_reg = header.nroReg;
-                (*data) = (INDEX_DATA *) malloc(sizeof(INDEX_DATA) * qt_reg);
+                qt_reg = header.nroReg; // Atualiza a quantidade de registros
+                (*data) = (INDEX_DATA *) malloc(sizeof(INDEX_DATA) * qt_reg); // Aloca memoria para os registros de indices
                 if((*data) != NULL)
                 {
                     for(int i = 0; i < qt_reg; i++)
                     {
-                        if((cluster_size_free - 128) < 0)
+                        if((cluster_size_free - 128) < 0) // Se chegou no fim de uma pagina de disco
                         {
                             for(int k = 0; k < cluster_size_free; k++)
                             {
@@ -276,9 +295,9 @@ int load_index(const char *file_name, INDEX_DATA **data)
                             }
                             cluster_size_free = INDEX_CLUSTER_SIZE;
                         }
-                        fread(&( (*data)[ptr].chaveBusca), 120, 1, index_arq);
-                        fread(&( (*data)[ptr].byteOffset), sizeof(long int), 1, index_arq);
-                        ptr++;
+                        fread(&( (*data)[ptr].chaveBusca), 120, 1, index_arq); // Recupera o nome
+                        fread(&( (*data)[ptr].byteOffset), sizeof(long int), 1, index_arq); // Recupera o byte offset
+                        ptr++; // Avanca o ponteiro para a proxima posicao livre
                         cluster_size_free -= 128;
                     }
                 }
