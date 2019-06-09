@@ -6,12 +6,12 @@
 ###########################################*/
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "inc/handle_file.h"
 #include "inc/handle_index.h"
 #include "inc/func_aux.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 int main(int argc, char const *argv[])
 {
@@ -271,7 +271,7 @@ int main(int argc, char const *argv[])
         case 10:
             scanf("%s", data_file_name);
             scanf("%s", data_file_name2);
-            create_index_file(data_file_name, data_file_name2);
+            create_index_file(data_file_name2, data_file_name);
             binarioNaTela2(data_file_name2);
             break;
 
