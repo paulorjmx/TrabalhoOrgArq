@@ -385,7 +385,7 @@ int main(int argc, char const *argv[])
                 qt_disk_pages_data = search_for_nome(data_file_name, nome);
                 printf("*** Realizando a busca com o auxílio de um índice secundário fortemente ligado\n");
                 qt_disk_pages_index = search_for_nome_index(data_file_name, data_file_name2, nome);
-                printf("\nDiferença no número de página de disco acessadas: %d\n", (qt_disk_pages_data - qt_disk_pages_index));
+                printf("\nA diferença no número de páginas de disco acessadas: %d", (qt_disk_pages_data - qt_disk_pages_index));
             }
             break;
 
