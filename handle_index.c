@@ -79,13 +79,13 @@ void write_index_header(const char *file_name, HEADER_INDEX *h)
     }
 }
 
-void create_index_file(const char *file_name, const char *data_file_name)
+int create_index_file(const char *file_name, const char *data_file_name)
 {
     // 'reg_size' armazena o tamanho do registro que sera lido do arquivo de dados
     // 'register_bytes_readed' armazena a quantidade de bytes lidos do registro do arquivo de dados
     // 'var_field_size' armazena a quantidade de bytes dos campos variaveis (nomeServidor e cargoServidor)
     // 'ptr' aponta para a primeira posicao livre de 'index_data'
-    int cluster_size_free = INDEX_CLUSTER_SIZE, reg_size = 0, register_bytes_readed = 0, var_field_size = 0, ptr = 0;
+    int cluster_size_free = INDEX_CLUSTER_SIZE, reg_size = 0, register_bytes_readed = 0, var_field_size = 0, ptr = 0, r = -1;
     // 'nome' e 'cargo' servem para armazenar os valores do nomeServidor e cargoServidor lidos do arquivo de dados
     char nome[120], cargo[200];
     // 'removido_token' eh para ler o primeiro byte do registro
@@ -194,19 +194,21 @@ void create_index_file(const char *file_name, const char *data_file_name)
                 header.status = '1';
                 rewind(index_arq);
                 fwrite(&header.status, sizeof(char), 1, index_arq);
+                r = 0;
+                fclose(index_arq);
             }
             else
             {
-                printf("Falha no processamento do arquivo1.\n");
+                printf("Falha no processamento do arquivo.\n");
             }
         }
         else
         {
-            printf("Falha no processamento do arquivo2.\n");
+            printf("Falha no processamento do arquivo.\n");
         }
-        fclose(index_arq);
         fclose(arq);
     }
+    return r;
 }
 
 long int *search_name_index(const char *file_name, const char *nome, int *items_finded)
