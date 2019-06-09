@@ -216,17 +216,17 @@ long int *search_name_index(const char *file_name, const char *nome, int *items_
     // 'ptr_byte_offsets' armazena os bytes offset dos registros de indices encontrados que contem 'nome'
     long int *ptr_byte_offsets = NULL;
     // 'qt_reg' armazena a quantidade de registros carregados na memoria
+    unsigned int qt_reg = 0;
     // 'qt_indexes' armazena a quantidade que 'ptr_byte_offsets' tem
     // 'ptr_indexes' contem as posicoes de 'index_data' que contem 'nome'
-    int qt_reg = 0, *ptr_indexes = NULL, qt_indexes = 0;
+    int *ptr_indexes = NULL, qt_indexes = 0;
     HEADER_INDEX header;
     // 'index_data' armazena o arquivo de indice em memoria primaria
     INDEX_DATA *index_data = NULL;
-    *items_finded = 0;
     if(file_name != NULL)
     {
         qt_reg = load_index(file_name, &index_data); // Carrega o indice na memoria
-        if(qt_reg != -1)
+        if(qt_reg > 0)
         {
             ptr_indexes = binary_seach_index(index_data, qt_reg, &qt_indexes, nome); // Busca nos registros de indice que contem 'nome' na memoria primaria
             if(ptr_indexes != NULL)
@@ -242,12 +242,16 @@ long int *search_name_index(const char *file_name, const char *nome, int *items_
                 free(ptr_indexes);
                 *items_finded = qt_indexes;
             }
+            else
+            {
+                *items_finded = 0;
+            }
+            free(index_data);
         }
         else
         {
             *items_finded = -1;
         }
-        free(index_data);
     }
 
     return ptr_byte_offsets;
@@ -263,14 +267,15 @@ int compare_index_function(const void *a, const void *b)
     return r;
 }
 
-int load_index(const char *file_name, INDEX_DATA **data)
+unsigned int load_index(const char *file_name, INDEX_DATA **data)
 {
     // 'bloat' eh utilizado para ler lixo no fim de paginas de disco
     char bloat = '@';
     // 'qt_reg' armazena a quantidade de registros carregados na memoria
+    unsigned int qt_reg = 0;
     // 'cluster_size_free' mantem a quantidade de bytes livres na pagina de disco
     // 'ptr' eh utilizado para percorrer 'data'
-    int qt_reg = -1, cluster_size_free = INDEX_CLUSTER_SIZE, ptr = 0;
+    int cluster_size_free = INDEX_CLUSTER_SIZE, ptr = 0;
     HEADER_INDEX header;
     FILE *index_arq = NULL;
     if(file_name != NULL && data != NULL)
