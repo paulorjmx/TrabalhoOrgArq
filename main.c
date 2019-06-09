@@ -271,8 +271,10 @@ int main(int argc, char const *argv[])
         case 10:
             scanf("%s", data_file_name);
             scanf("%s", data_file_name2);
-            create_index_file(data_file_name2, data_file_name);
-            binarioNaTela2(data_file_name2);
+            if(create_index_file(data_file_name2, data_file_name) != -1)
+            {
+                binarioNaTela2(data_file_name2);
+            }
             break;
 
         case 11:
