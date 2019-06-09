@@ -309,14 +309,14 @@ int main(int argc, char const *argv[])
                         if(r != -1)
                         {
                             r = remove_index_file(data_file_name2, index_data, qt_reg_index, nome);
-                            if(r != -1)
-                            {
-                                binarioNaTela2(data_file_name2);
-                            }
                         }
                     }
                 }
                 write_index_data(data_file_name2, index_data, qt_reg_index);
+                if(r != -1)
+                {
+                    binarioNaTela2(data_file_name2);
+                }
                 free(index_data);
             }
             break;
@@ -364,14 +364,19 @@ int main(int argc, char const *argv[])
                     {
                         if(nome[0] != '\0')
                         {
-                            if(insert_index_file(data_file_name2, &index_data, &qt_reg_index, nome, byte_offset) != -1)
-                            {
-                                binarioNaTela2(data_file_name2);
-                            }
+                            r = insert_index_file(data_file_name2, &index_data, &qt_reg_index, nome, byte_offset);
+                        }
+                        else
+                        {
+                            r = 0;
                         }
                     }
                 }
                 write_index_data(data_file_name2, index_data, qt_reg_index);
+                if(r != -1)
+                {
+                    binarioNaTela2(data_file_name2);
+                }
                 free(index_data);
             }
             break;
