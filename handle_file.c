@@ -1192,10 +1192,7 @@ int search_for_nome(const char *file_name, const char *nome)
                     {
                         printf("Registro inexistente.\n");
                     }
-                    else
-                    {
-                        printf("Número de páginas de disco acessadas: %d\n", disk_pages);
-                    }
+                    printf("Número de páginas de disco acessadas: %d\n", disk_pages);
                 }
                 else
                 {
@@ -4445,7 +4442,7 @@ int search_for_nome_index(const char *file_name, const char *index_file_name, co
                         }
                         else
                         {
-                            printf("%lf\n", data.salario);
+                            printf("%.2lf\n", data.salario);
                         }
                         printf("%s: ", header.desc_campo3);
                         if(data.telefone[0] != '\0')
