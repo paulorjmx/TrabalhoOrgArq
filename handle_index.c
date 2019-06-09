@@ -70,7 +70,7 @@ void write_index_header(const char *file_name, HEADER_INDEX *h)
         {
             fwrite(&(h->status), sizeof(char), 1, arq);
             fwrite(&(h->nroReg), sizeof(int), 1, arq);
-            for(int i = 5; i < INDEX_CLUSTER_SIZE; i++)
+            for(int i = 5; i < INDEX_CLUSTER_SIZE; i++) // Loop para preencher o restante da pagina de disco com lixo
             {
                 fwrite(&bloat, sizeof(char), 1, arq);
             }
@@ -81,13 +81,16 @@ void write_index_header(const char *file_name, HEADER_INDEX *h)
 
 void create_index_file(const char *file_name, const char *data_file_name)
 {
-    int idServidor;
+    // 'reg_size' armazena o tamanho do registro que sera lido do arquivo de dados
+    // 'register_bytes_readed' armazena a quantidade de bytes lidos do registro do arquivo de dados
+    // 'var_field_size' armazena a quantidade de bytes dos campos variaveis (nomeServidor e cargoServidor)
+    // 'ptr' aponta para a primeira posicao livre de 'index_data'
     int cluster_size_free = INDEX_CLUSTER_SIZE, reg_size = 0, register_bytes_readed = 0, var_field_size, ptr = 0;
-    char nome[120], cargo[200], telefone[15];
+    // 'nome' e 'cargo' servem para armazenar os valores do nomeServidor e cargoServidor lidos do arquivo de dados
+    char nome[120], cargo[200];
     char removido_token = '-', status_arq = '0', bloat = '@', tag_campo = '*', tag_campo4 = '#', tag_campo5 = '$';
     FILE *index_arq = NULL, *arq = NULL;
     long int bo = 0, el = 0;
-    double salario;
     HEADER_INDEX header;
     INDEX_DATA index_data[6000];
     if((file_name != NULL) && (data_file_name != NULL))
@@ -299,17 +302,26 @@ int load_index(const char *file_name, INDEX_DATA **data)
 }
  int *binary_seach_index(INDEX_DATA *data, unsigned int nitems, int *items_finded, const char *nome)
  {
-    unsigned int sup = nitems, inf = 0, mid = 0, qt_reg = 0;
-    int cmp = 0, r = -1, *indexes = NULL, j = 0;
+     // 'sup' eh o limite superior de 'data'
+     // 'inf' eh o limite inferior de 'data'
+     // 'mid' eh o meio de 'data'
+     // 'qt_reg' armazena a quantidade de registros de indice que tem 'nome'
+    unsigned int sup = nitems, inf = 0, mid = -1, qt_reg = 0;
+    // 'findit' eh uma flag para indicar que o registro de indice contem nome
+    char findit = 0x00;
+    // 'cmp' eh 0 quando o nome eh encontrado em alguma registro de indice
+    // 'indexes' eh um array que armazena as posicoes do array do registro de indices ('data') que contem 'nome'
+    // 'j' eh utilizado na insercao das posicoes em 'indexes'
+    int cmp = 0, *indexes = NULL, j = 0;
     if(data != NULL)
     {
-        mid = (inf + sup) / 2;
+        mid = (inf + sup) / 2; // calcula o meio
         cmp = strcmp(nome, data[mid].chaveBusca);
         while(inf <= sup)
         {
             if(cmp == 0)
             {
-                r = mid;
+                findit = 0x01;
                 break;
             }
             else if(cmp < 0)
@@ -320,27 +332,28 @@ int load_index(const char *file_name, INDEX_DATA **data)
             {
                 inf = (mid + 1);
             }
-            mid = (inf + sup) / 2;
+            mid = (inf + sup) / 2; // calcula o novo meio
             cmp = strcmp(nome, data[mid].chaveBusca);
         }
-        if(r != -1)
+        if(findit == 0x01) // Se encontrou um registro
         {
             qt_reg++;
-            sup = (mid - 1);
-            while(strcmp(nome, data[sup].chaveBusca) == 0 && sup < nitems)
+            sup = (mid - 1); // Necessario para buscar nomes iguais no loop abaixo
+            while(strcmp(nome, data[sup].chaveBusca) == 0 && sup < nitems) // Enquanto houver mais nomes iguais
             {
                 sup++;
                 qt_reg++;
             }
-            *items_finded = (qt_reg - 1);
+            *items_finded = (qt_reg - 1); // Atualiza a quantidade de registros que 'items_finded' aponta
             indexes = (int *) malloc(sizeof(int) * qt_reg);
             if(indexes != NULL)
             {
-                if(sup == (mid - 1))
+                if(sup == (mid - 1)) // Se encontrou apenas um nome
                 {
                     indexes[0] = mid;
+                    *items_finded = qt_reg; // Atualiza a quantidade de registros que 'items_finded' aponta
                 }
-                else
+                else // Se encontrou varios nomes
                 {
                     for(int i = (mid - 1); i < sup; i++, j++)
                     {
@@ -355,8 +368,13 @@ int load_index(const char *file_name, INDEX_DATA **data)
 
 int remove_index_file(const char *file_name, INDEX_DATA *data, unsigned int nitems, const char *nome)
 {
+    // 'r' eh o retorna da funcao
+    // 'items_finded' armazena a quantidade de registros encontrados em 'data' que contem 'nome'
+    // 'ptr_indexes' eh um array de inteiros que servem para indexar os registros encontrados em 'data' que contem 'nome'
     int r = -1, items_finded = 0, *ptr_indexes = NULL;
+    // 'index_arq' eh utilizado para escrever o novo cabecalho no fim da execucao da funcao
     FILE *index_arq = NULL;
+    // 'header' armazena informacoes do cabecalho do arquivo de indices
     HEADER_INDEX header;
     if(file_name != NULL && data != NULL)
     {
@@ -370,14 +388,14 @@ int remove_index_file(const char *file_name, INDEX_DATA *data, unsigned int nite
                 {
                     header.status = '0';
                     fwrite(&header.status, sizeof(char), 1, index_arq);
-                    ptr_indexes = binary_seach_index(data, nitems, &items_finded, nome);
+                    ptr_indexes = binary_seach_index(data, nitems, &items_finded, nome); // Realiza a buca binaria para encontrar os registros de indices que contem nome
                     if(ptr_indexes != NULL)
                     {
-                        for(int i = 0; i <= items_finded; i++) // Loop para marcar os registros de indices como removidos
+                        for(int i = 0; i < items_finded; i++) // Loop para marcar os registros de indices como removidos
                         {
                             data[ptr_indexes[i]].byteOffset = -1; // Marca os registros de indices como removidos
                         }
-                        header.nroReg -= (items_finded + 1); // Diminui a quantidade de registros que o arquivo de indice contem
+                        header.nroReg -= items_finded; // Diminui a quantidade de registros que o arquivo de indice contem
                         fseek(index_arq, 1, SEEK_SET); // Volta para o comeco do arquivo de indice pulando o 'status' para escrever o novo 'nroReg'
                         fwrite(&header.nroReg, sizeof(int), 1, index_arq); // Escreve a nova quantidade de registros de indices o arquivo tem
                     }
@@ -413,9 +431,13 @@ int remove_index_file(const char *file_name, INDEX_DATA *data, unsigned int nite
 
 void write_index_data(const char *file_name, INDEX_DATA *data, unsigned int nitems)
 {
+    // 'bloat' eh utilizado para preencher a pagina de disco com lixo
     char bloat = '@';
+    // 'cluster_size_free' serve para consultar o quanto a pagina de disco tem de espaco livre
     int cluster_size_free = INDEX_CLUSTER_SIZE;
+    // 'header' armazena informacoes do cabecalho do arquivo de indices
     HEADER_INDEX header;
+    // 'index_arq' eh o pointeiro para o arquivo de indices
     FILE *index_arq = NULL;
     if(file_name != NULL)
     {
@@ -455,37 +477,45 @@ void write_index_data(const char *file_name, INDEX_DATA *data, unsigned int nite
 
 int insert_index_file(const char *file_name, INDEX_DATA **data, unsigned int *nitems, const char *nome, long int byte_offset)
 {
+    // 'r' eh o retorno da funcao
+    // 'i' eh utilizado no loop de insercao do novo registro
     int i = 0, r = -1;
+    // 'index_arq' eh utilizado para escrever o novo cabecalho no fim da execucao da funcao
     FILE *index_arq = NULL;
+    // 'header' armazena o cabecalho do arquivo
     HEADER_INDEX header;
     if(file_name != NULL)
     {
-        read_index_header(file_name, &header);
+        read_index_header(file_name, &header); // le o arquivo de cabecalho
         if(header.status == '1')
         {
-            (*data) = (INDEX_DATA *) realloc((*data), sizeof(INDEX_DATA) * ((*nitems) + 1));
+            (*data) = (INDEX_DATA *) realloc((*data), sizeof(INDEX_DATA) * ((*nitems) + 1)); // Altera o tamanho para conter o novo registro a ser inserido
             if((*data) != NULL)
             {
-                i = ((*nitems) - 1);
-                while((strcmp(nome, (*data)[i].chaveBusca) < 0) && i >= 0)
+                i = ((*nitems) - 1); // 'i' Aponta para o ultimo registro
+                while((strcmp(nome, (*data)[i].chaveBusca) < 0) && i >= 0) // Loop para encontrar a posicao para inserir o novo registro
                 {
-                    (*data)[i + 1] = (*data)[i];
+                    /*
+                        A insercao ocorre deslocando os registros ate encontrar uma posicao
+                        correta para inserir o registro
+                    */
+                    (*data)[i + 1] = (*data)[i]; // Desloca uma posicao a frente
                     i--;
                 }
-                if(strcmp(nome, (*data)[i].chaveBusca) == 0)
+                if(strcmp(nome, (*data)[i].chaveBusca) == 0) // Se a posicao achada tem um registro de nome igual
                 {
-                    while(byte_offset < (*data)[i].byteOffset)
+                    while(byte_offset < (*data)[i].byteOffset) // Ordena por byte offset
                     {
-                        (*data)[i + 1] = (*data)[i];
+                        (*data)[i + 1] = (*data)[i]; // Desloca uma posicao a frente
                         i--;
                     }
                 }
                 memset((*data)[i + 1].chaveBusca, '@', sizeof((*data)[i + 1].chaveBusca));
-                strncpy((*data)[i + 1].chaveBusca, nome, (strlen(nome) + 1));
+                strncpy((*data)[i + 1].chaveBusca, nome, (strlen(nome) + 1)); // Insere o novo registro de indice
                 (*data)[i + 1].byteOffset = byte_offset;
-                (*nitems)++;
-                index_arq = fopen(file_name, "r+b");
-                header.nroReg++;
+                (*nitems)++; // Atualiza o valor da variavel que guarda a quantidade de registros que 'data' tem
+                index_arq = fopen(file_name, "r+b"); // Abre o arquivo de indices para atualizar o cabecalho
+                header.nroReg++; // Atualiza a quantidade de registros que o arquivo de indices tem
                 fwrite(&header.status, sizeof(char), 1, index_arq);
                 fwrite(&header.nroReg, sizeof(int), 1, index_arq);
                 fclose(index_arq);
