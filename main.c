@@ -16,7 +16,8 @@
 int main(int argc, char const *argv[])
 {
     INDEX_DATA *index_data = NULL;
-    int option = -1, idServidor = 0, n = 0, r = 0, qt_reg_index = 0;
+    int option = -1, idServidor = 0, n = 0, r = 0, qt_disk_pages_index = 0, qt_disk_pages_data = 0;
+    unsigned int qt_reg_index = 0;
     long int byte_offset = 0;
     double salarioServidor = 0.0;
     char salario[300], cargo[500], nome[200], telefone[15], query_field[20];
@@ -280,11 +281,7 @@ int main(int argc, char const *argv[])
             scanf("%s", query_field);
             if(strcmp(query_field, "nomeServidor") == 0)
             {
-                scan_quote_string(nome);
-                if(strcmp(nome, "NULO") == 0)
-                {
-                    memset(nome, 0x00, sizeof(nome));
-                }
+                scanf(" %500[^\n\r]", nome);
                 search_for_nome_index(data_file_name, data_file_name2, nome);
             }
             break;
@@ -310,6 +307,10 @@ int main(int argc, char const *argv[])
                         if(r != -1)
                         {
                             r = remove_index_file(data_file_name2, index_data, qt_reg_index, nome);
+                            if(r != -1)
+                            {
+                                binarioNaTela2(data_file_name2);
+                            }
                         }
                     }
                 }
@@ -361,12 +362,30 @@ int main(int argc, char const *argv[])
                     {
                         if(nome[0] != '\0')
                         {
-                            insert_index_file(data_file_name2, &index_data, &qt_reg_index, nome, byte_offset);
+                            if(insert_index_file(data_file_name2, &index_data, &qt_reg_index, nome, byte_offset) != -1)
+                            {
+                                binarioNaTela2(data_file_name2);
+                            }
                         }
                     }
                 }
                 write_index_data(data_file_name2, index_data, qt_reg_index);
                 free(index_data);
+            }
+            break;
+
+        case 14:
+            scanf("%s", data_file_name);
+            scanf("%s", data_file_name2);
+            scanf("%s", query_field);
+            if(strcmp(query_field, "nomeServidor") == 0)
+            {
+                printf("*** Realizando a busca sem o auxílio de índice\n");
+                scanf(" %500[^\n\r]", nome);
+                qt_disk_pages_data = search_for_nome(data_file_name, nome);
+                printf("*** Realizando a busca com o auxílio de um índice secundário fortemente ligado\n");
+                qt_disk_pages_index = search_for_nome_index(data_file_name, data_file_name2, nome);
+                printf("\nDiferença no número de página de disco acessadas: %d\n", (qt_disk_pages_data - qt_disk_pages_index));
             }
             break;
 
