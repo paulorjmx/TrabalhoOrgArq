@@ -4474,6 +4474,123 @@ int search_for_nome_index(const char *file_name, const char *index_file_name, co
                         printf("\n");
                     }
                     free(bo_list);
+                    printf("Número de páginas de disco para carregar o arquivo de índice: %ld\n", (index_file_size / 32000) + 1); // Calcula quantas paginas de disco o arquivo de indice tem
+                    printf("Número de páginas de disco para acessar o arquivo de dados: %d\n", qt_disk_pages); // Quantidade de pagina de disco acessadas do arquivo de dados
+                }
+                else if(list_size == 0)
+                {
+                    printf("Registro inexistente.\n");
+                }
+                index_arq = fopen(index_file_name, "ab"); // Abre o arquivo de indice com o ponteiro no final
+                index_file_size = ftell(index_arq); // Armazena o tamanho do arquivo
+                fclose(index_arq);
+            }
+            else
+            {
+                printf("Falha no processamento do arquivo.\n");
+            }
+            rewind(arq);
+            header.status = '1';
+            fwrite(&header.status, sizeof(char), 1, arq);
+        }
+        else
+        {
+            printf("Falha no processamento do arquivo.\n");
+        }
+        fclose(arq);
+    }
+    else
+    {
+        printf("Falha no processamento do arquivo.\n");
+    }
+    return qt_disk_pages;
+}
+
+
+int search_for_nome_index_statistical(const char *file_name, const char *index_file_name, const char *nome)
+{
+    // 'first_byte' eh utilizado para ler o primeiro byte do registro
+    char first_byte = '-';
+    // 'bo_list' eh um array dos bytes offset dos registros de dados encontrados
+    // 'index_file_size' armazena o tamanho do arquivo de indice
+    long int *bo_list = NULL, index_file_size = 0;
+    // 'list_size' eh armazena o tamanho (quantidade de elementos) de bo_list
+    // 'last_disk_page' armazena o numero da ultima pagina de disco acessada
+    // 'disk_page_n' armazena o resultado do calculo para saber o numero da pagina de disco atualmente acessada
+    // 'qt_disk_pages' armazena a quantidade de paginas de disco acessadas do arquivo de dados
+    int list_size = 0, last_disk_page = 1, disk_page_n = 0, qt_disk_pages = 1;
+    // 'data' eh a estrutura de dados utilizada para armazenar um registro lido do arquivo de dados
+    DATA_REGISTER data;
+    // 'header' armazena o registro de cabecalho do arquivo de dados
+    FILE_HEADER header;
+    // 'arq' e 'index_arq' sao ponteiros para os arquivos de dados e de indice, respectivamente
+    FILE *arq = NULL, *index_arq = NULL;
+    if(file_name != NULL)
+    {
+        arq = fopen(file_name, "rb");
+        if(arq != NULL)
+        {
+            read_file_header(arq, &header); //  Le o registro de cabecalho do arquivo de dados
+            if(header.status == '1')
+            {
+                rewind(arq);
+                header.status = '0';
+                fwrite(&header.status, sizeof(char), 1, arq);
+                bo_list = search_name_index(index_file_name, nome, &list_size); // Procura no arquivo de indice registros que contenha 'nome'
+                if(bo_list != NULL && list_size > 0)
+                {
+                    for(int i = 0; i < list_size; i++)
+                    {
+                        fseek(arq, bo_list[i], SEEK_SET); // Vai ate o registro
+                        disk_page_n = (bo_list[i] / CLUSTER_SIZE); // Calcula o numero da pagina de disco em que o registro se encontra
+                        if(last_disk_page != disk_page_n) // Se for diferente da ultima pagina de disco acessada
+                        {
+                            qt_disk_pages++; // Acessa uma nova pagina de disco
+                            last_disk_page = disk_page_n; // Esta se torna a nova ultima pagina de disco acessada
+                        }
+                        fread(&first_byte, sizeof(char), 1, arq); // Le o primeiro byte do registro de dados
+                        read_register(arq, &header, &data); // Le o restante do registro
+                        // Exibe as informacoes do registro de dados
+                        printf("%s: %d\n", header.desc_campo1, data.id);
+                        printf("%s: ", header.desc_campo2);
+                        if(data.salario <= 0.0)
+                        {
+                            printf("valor nao declarado\n");
+                        }
+                        else
+                        {
+                            printf("%.2lf\n", data.salario);
+                        }
+                        printf("%s: ", header.desc_campo3);
+                        if(data.telefone[0] != '\0')
+                        {
+                            printf("%s\n", data.telefone);
+                        }
+                        else
+                        {
+                            printf("valor nao declarado\n");
+                        }
+                        printf("%s: ", header.desc_campo4);
+                        if(data.nome_size > 0)
+                        {
+                            printf("%s\n", data.nome);
+                        }
+                        else
+                        {
+                            printf("valor nao declarado\n");
+                        }
+                        printf("%s: ", header.desc_campo5);
+                        if(data.cargo_size > 0)
+                        {
+                            printf("%s\n", data.cargo);
+                        }
+                        else
+                        {
+                            printf("valor nao declarado\n");
+                        }
+                        printf("\n");
+                    }
+                    free(bo_list);
                 }
                 else if(list_size == 0)
                 {
